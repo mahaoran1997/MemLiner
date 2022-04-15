@@ -1,6 +1,5 @@
 # MemLiner
 
-
 ## 1. Build & Install
 
 MemLiner has been configured on our machines. You can skip this section for artifact evaluation. You can follow the following steps in this section if you want to build and install MemLiner on your own machine.
@@ -125,9 +124,22 @@ sudo update-alternatives --config java
 ./sbin/start-all.sh
 ```
 
+After editing `conf/spark-defaults.conf` according to instructions below, restart the master and worker to make sure the new config is used.
+
+```bash
+./sbin/stop-all.sh
+./sbin/start-all.sh
+```
+
+After done with app spark apps, stop the master and worker
+
+```bash
+./sbin/stop-all.sh
+```
+
 ### 2.1 Baseline
 
-1. Edit the `conf/spark-defaults.conf` , comment Line 43 and uncomment Line 42.
+1. Edit the `conf/spark-defaults.conf` , comment Line 43 and uncomment Line 42, and restart master and worker.
 2. Use the following command to run baseline:
     
     ```bash
@@ -139,8 +151,8 @@ sudo update-alternatives --config java
 
 ### 2.2 MemLiner
 
-1. Edit the `conf/spark-defaults.conf` , comment Line 42 and uncomment Line 43.
-2. Use the following command to run baseline:
+1. Edit the `conf/spark-defaults.conf` , comment Line 42 and uncomment Line 43, and restart master and worker.
+2. Use the following command to run MemLiner:
     
     ```bash
     # application: lr, km, tc
@@ -167,7 +179,7 @@ cd /mnt/ssd/guest/neo4j
     ```
     
 2. Open `/etc/neo4j/neo4j.conf` and uncomment the lines that contains the corresponding parameters.
-3. Start Neo4J
+3. Start Neo4J. Wait until the log `INFO Started.` is printed before running the apps.
     
     ```bash
     # tool: baseline, memliner
@@ -175,7 +187,7 @@ cd /mnt/ssd/guest/neo4j
     ./start-neo4j.sh tool local_ratio
     ```
     
-4. Running applications:
+4. Running applications. Use `bash` to make `time -p` functional.
     1. Neo4J PageRank
         
         ```python
@@ -207,7 +219,7 @@ cd /mnt/ssd/guest/cassandra
 ### 4.1 Baseline
 
 1. Edit the `bin/cassandra` , comment Line 197 and uncomment Line 196.
-2. Edit `conf/jvm11-server.options` and uncomment corresponding parameters to the configuration you want to test. And then start Cassandra:
+2. Edit `conf/jvm11-server.options` and uncomment corresponding parameters to the configuration you want to test. And then start Cassandra. Wait until the script return before starting workloads.
     
     ```python
     # local_ratio: 100, 25, 13
@@ -234,7 +246,7 @@ cd /mnt/ssd/guest/cassandra
 ### 4.2 MemLiner
 
 1. Edit the `bin/cassandra` , comment Line 196 and uncomment Line 197.
-2. Start Cassandra
+2. Edit `conf/jvm11-server.options` and uncomment corresponding parameters to the configuration you want to test. Start Cassandra. Wait until the script return before starting workloads.
     
     ```python
     # local_ratio: 25, 13
