@@ -58,7 +58,7 @@ int main(int argc, char *argv[])
 	struct rdma_event_channel *ec = NULL; // [x] Event channel, used for 2-sided RDMA. Get interrupes here.
 	uint16_t port = 0;
 
-	const char *ip_str = "10.0.10.6";
+	const char *ip_str = "memory.server.ib.ip";
 	const char *port_str = "9400";
 	fprintf(stderr, "%s, trying to bind to %s:%s.\n", __func__, ip_str, port_str);
 
