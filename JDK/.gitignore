@@ -36,6 +36,6 @@
 *.app
 
 ./build/
-build/
+#build/
 scratch
 dacapo_logs/
