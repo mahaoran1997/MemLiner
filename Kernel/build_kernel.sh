@@ -8,6 +8,9 @@ version="5.4.0"
 # Or remove the suffix
 LocalVersion=
 
+
+num_core=`nproc`
+
 ### Operations
 
 op=$1
@@ -54,14 +57,14 @@ delete_old_kernel_contents () {
 install_new_kernel_contents () {
 	echo "install kernel modules"
 	sleep 1
-	sudo make modules_install
+	sudo make -j${num_core}  modules_install
 
 	echo "install kernel image"
 	sleep 1
-	sudo make install
+	sudo make -j${num_core}  install
 
-	echo "Install uapi kernel headers to /usr/include/linux/"
-	sudo make headers_install INSTALL_HDR_PATH=/usr
+	#echo "Install uapi kernel headers to /usr/include/linux/"
+	#sudo make headers_install INSTALL_HDR_PATH=/usr
 
 }
 
@@ -120,9 +123,9 @@ then
 	sleep 1
 	make oldconfig
 
-	echo "make LOCALVERSION=${localVersion}  -j16"
+	echo "make LOCALVERSION=${localVersion}  -j${num_core} "
 	sleep 1
-	make LOCALVERSION="${localVersion}"  -j16
+	make LOCALVERSION="${localVersion}"  -j${num_core} 
 
 elif [ "${op}" = "install" ]
 then
@@ -140,7 +143,7 @@ then
 	sleep 1
 
 	echo "Install kernel image only"
-	sudo make install
+	sudo make -j${num_core}  install
 	sleep 1
 
 	update_grub_entries
