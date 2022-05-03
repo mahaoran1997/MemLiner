@@ -1,367 +1,461 @@
-# MemLiner
+# MemLiner README
 
-## 1. Build & Install
+We prepared **four machines** (two CPU server - memory server pairs) with InfiniBand plugged in for artifact evaluation. The configuration of these four machines are not exactly the same as the servers we used in the paper, but you should be able to see similar speedups. 
 
-MemLiner has been configured on our machines. You can skip this section for artifact evaluation. You can follow the following steps in this section if you want to build and install MemLiner on your own machine.
+<aside>
+💡 Warning: please confirm that no other users are using the servers at the same time.  You can use command `w`  and `tmux ls` to check other logins.
 
-### 1.1 Install Kernel
 
-```python
+</aside>
+
+# 1. Configuration & Execution
+
+MemLiner has been configured on our provided machines. You can execute the applications directly on these machines. If you want to build all the things from the scratch, please check Section 3.
+
+## 1.1 Connect the CPU Server with the memory server
+
+Please firstly check if the CPU server and memory server is already connected. You can use the following command:
+
+```bash
+dmesg | grep -A5 "rswap_query_available_memory: Got 12 free memory chunks from remote memory server. Request for Chunks"
+```
+
+If you can see the following output:
+
+```bash
+[  208.689215] rswap_query_available_memory: Got 12 free memory chunks from remote memory server. Request for Chunks
+[  208.689222] two_sided_message_done, Got a WC from CQ, IB_WC_SEND. 2-sided RDMA post done.
+[  208.689253] two_sided_message_done, Got a WC from CQ, IB_WC_RECV.
+[  208.689255] rswap_request_for_chunk, Got 12 chunks from memory server.
+[  208.689256] rdma_session_connect,Exit the main() function with built RDMA conenction rdma_session_context:0xffffffffc0a8c420 .
+[  208.689259] frontswap module loaded
+```
+
+Then it means the servers are already connected, you can directly goto section 1.2. If not, then check our instructions below:
+
+- Launch the memory server:
+
+```bash
+# Log into memory server, .e.g., guest@zion-4.cs.ucla.edu
+
+# Let memory server run in background
+tmux
+
+# Launch the memory server and wait the connection from CPU serever
+cd ${HOME}/MemLiner/scripts/server
+./rswap-server
+```
+
+- Launch the CPU server:
+
+```bash
+# Log into the CPU server, .e.g., guest@zion-1.cs.ucla.edu
+# Warning: Please check other users didn't connect the CPU server with any memory servers. 
+# Please check the FAQ Q#1 to see how to confirm the situation.  
+#
+cd ${HOME}/MemLiner/scripts/client
+./manage_rswap_client.sh install
+```
+
+## 1.2 Limit the memory resources of applications
+
+MemLiner relies on *cgroup* to limit the memory usage of applications running on the CPU server. we are using cgroup version 1 here. 
+
+Create cgroup on the CPU server:
+
+```bash
+# Create a memory cgroup, memctl, for the applications running on the CPU server.
+# $USER is the username of the account. It's "guest" here.
+sudo cgcreate -t $USER -a $USER -g memory:/memctl
+
+# Please confirm that a memory cgroup directory is built as:
+/sys/fs/cgroup/memory/memctl
+```
+
+Limit local memory size on the CPU server. E.g., set local memory to 9GB:
+
+```bash
+# Please adjust the local memory size for different applications.
+# e.g., for Spark with a 32GB Java heap. 25% local memory ratio means that we limit its CPU server memory size to 9GB.
+# Application's working set includeds both Java heap and off-heap data, which is around 36GB in total. 
+echo 9g > /sys/fs/cgroup/memory/memctl/memory.limit_in_bytes
+```
+
+## 1.3 Run Spark applications on MemLiner
+
+Here we use Apache Spark as an example to show how to execute the applications on the MemLiner. If you want to execute other applications, please check the **Section 2**.  All the following operations are on the CPU server, .e.g. guest@zion-1.cs.ucla.edu.
+
+## 1.3.1 All-in-one shell script
+
+We put all the necessary instructions into an all-in-on shell script, the users can execute  the applications, collect the experiment results and draw the pictures via the the single shell-script: `${HOME}/MemLinerScripts/run-all.sh`
+
+For example, to execute the Spark applications on the pair: `guest@zion-1`（CPU server）and `guest@zion-4` (Memory server)
+
+```bash
+# switch to the directory
+cd ${HOME}/MemLinerScripts
+
+# launch tmux
+tmux
+
+# Run spark applicaions
+# ./run-all.sh app_name
+# app_name list: tradesoap, spark, neo4j, cas, qcd
+./run-all.sh spark
+
+# The results are in ${HOME}/MemLinerTimeLogs/evaluation_51.pdf
+```
+
+# 2.  Run other applications
+
+We list how to run the other applications in this session: (1) Graph database, Neo4j; (2) Online stock trading emulating system, DayTrader; (3) NoSQL database Cassandra; (4) In-memory key-value store Quickcached.
+
+To run all applications together, you can use our all-in-one shell script:
+
+```bash
+# switch to the directory
+cd ${HOME}/MemLinerScripts
+
+# launch tmux
+tmux
+
+# Run all applicaions
+./run-all.sh
+
+# The results will be generated under ${HOME}/MemLinerTimeLogs/evaluation51-ae.pdf
+```
+
+If you want to run different applications individually, please check instructions below. All results will be in the folder: `${HOME}/MemLinerTimeLogs`. The name of the generated figure is `evaluation51-ae.pdf`.
+
+## 2.1 Neo4J
+
+All the following operations are done on CPU server, e.g., `guest@zion-1.cs.ucla.edu`.
+
+```bash
+# switch to the directory
+cd ${HOME}/MemLinerScripts
+
+# launch tmux
+tmux
+
+# Run neo4j applicaions
+./run-all.sh neo4j
+```
+
+## 2.2  TradeSoap
+
+Assume we are on the CPU server, e.g., `guest@zion-1.cs.ucla.edu`.  ****
+
+```bash
+# switch to the directory
+cd ${HOME}/MemLinerScripts
+
+# launch tmux
+tmux
+
+# Run tradesoap
+./run-all.sh tradesoap
+```
+
+### Known problems:
+
+You might encounter AxisFault error when running baseline or MemLiner. You can just ignore it because that’s a confirmed bug in tradesoap impelementation.
+
+## 2.3  Cassandra
+
+Assume we are on the CPU server, e.g., guest@zion-1.cs.ucla.edu. The application is in the folder: `${HOME}/cassandra`
+
+```bash
+# switch to the directory
+cd ${HOME}/MemLinerScripts
+
+# launch tmux
+tmux
+
+# Run cassandra applicaions
+./run-all.sh cas
+```
+
+## 2.4 Running QuickCached
+
+Assume we are on the CPU server, e.g., guest@zion-1.cs.ucla.edu. The application is put in folder: `${HOME}/quickcached`
+
+```bash
+# switch to the directory
+cd ${HOME}/MemLinerScripts
+
+# launch tmux
+tmux
+
+# Run quickcached applicaions
+./run-all.sh qcd
+```
+
+# 3. Build & Install MemLiner
+
+## 3.1 Environments
+
+Two sets of environment have been tested for MemLiner:
+
+```bash
+Ubuntu 18.04
+Linux 5.4
+OpenJDK 12.04
+GCC 5.5 
+MLNX_OFED rriver 4.9-2.2.4.0
+
+or
+
+CentOS 7.5 - 7.7
+Linux 5.4
+OpenJDK 12.04
+GCC 5.5
+MLNX_OFED driver 4.9-2.2.4.0 
+```
+
+Among the requirements, the Linux version, OpenJDK version and MLNX-OFED driver version are guaranteed during the build & installation process below. Just make sure that the Linux distribution version and gcc version are correct.
+
+## 3.2 Install Kernel
+
+Next we will use Ubuntu 18.04 as an example to show how to build and install the kernel:
+
+### Change the kernel on both CPU and memory server:
+
+Change the grub parameters
+
+```bash
+sudo vim /etc/default/grub
+
+# Choose the bootup kernel version as 5.4.0
+GRUB_DEFAULT="Advanced options for Ubuntu>Ubuntu, with Linux 5.4.0"
+
+# Change the value of GRUB_CMDLINE_LINUX:
+GRUB_CMDLINE_LINUX="nokaslr transparent_hugepage=madvise intel_pstate=disable idle=poll processor.max_cstate=0 intel_idle.max_cstate=0"
+
+```
+
+Build the Kernel source code && install it:
+
+```bash
+# Change to the kernel folder:
 cd MemLiner/Kernel
+
 sudo ./build_kernel.sh build
 sudo ./build_kernel.sh install
+sudo reboot
 ```
 
-### 1.2 Install MLNX_OFED Driver
+## 3.3 Install MLNX OFED Driver
 
-```python
-# for CentOS 7.5
-wget https://content.mellanox.com/ofed/MLNX_OFED-4.9-2.2.4.0/MLNX_OFED_LINUX-4.9-2.2.4.0-rhel7.5-x86_64.tgz
-tar xzf MLNX_OFED_LINUX-4.9-2.2.4.0-rhel7.5-x86_64.tgz
-cd MLNX_OFED_LINUX-4.9-2.2.4.0-rhel7.5-x86_64
-# for CentOS 7.6
-wget https://content.mellanox.com/ofed/MLNX_OFED-4.9-2.2.4.0/MLNX_OFED_LINUX-4.9-2.2.4.0-rhel7.6-x86_64.tgz
-tar xzf MLNX_OFED_LINUX-4.9-2.2.4.0-rhel7.6-x86_64.tgz
-cd MLNX_OFED_LINUX-4.9-2.2.4.0-rhel7.6-x86_64
-# for CentOS 7.7
-wget https://content.mellanox.com/ofed/MLNX_OFED-4.9-2.2.4.0/MLNX_OFED_LINUX-4.9-2.2.4.0-rhel7.7-x86_64.tgz
-tar xzf MLNX_OFED_LINUX-4.9-2.2.4.0-rhel7.7-x86_64.tgz
-cd MLNX_OFED_LINUX-4.9-2.2.4.0-rhel7.7-x86_64
-# for Ubuntu 18.04
+**Preparations:**
+
+MemLiner is only tested on `MLNX_OFED-4.9-2.2.4.0`. Download and unzip the package according to your system version, on both CPU and memory server.
+
+Take Ubuntu 18.04 as an example:
+
+### 3.3.1 Download & Install the MLNX_OFED driver
+
+```bash
+# Download the MLNX OFED driver for the Ubuntu 18.04
 wget https://content.mellanox.com/ofed/MLNX_OFED-4.9-2.2.4.0/MLNX_OFED_LINUX-4.9-2.2.4.0-ubuntu18.04-x86_64.tgz
 tar xzf MLNX_OFED_LINUX-4.9-2.2.4.0-ubuntu18.04-x86_64.tgz
-cd MLNX_OFED_LINUX-4.9-2.2.4.0-ubuntu18.04-x86_64\
+cd MLNX_OFED_LINUX-4.9-2.2.4.0-ubuntu18.04-x86_64
 
-# for CentOS
-sudo yum install -y gtk2 atk cairo tcl tk
-# for Ubuntu (only applies when a InfiniBand driver was installed via apt, but safe to run anyway)
-# opensm may be running to prevent a complete uninstallation process, stop it first
-sudo service opensm stop
-sudo apt remove ibverbs-providers:amd64 librdmacm1:amd64 librdmacm-dev:amd64 libibverbs-dev:amd64 libopensm5a libosmvendor4 libosmcomp3
-# install driver. additional packages may need to be installed, just follow the output
+# Remove the incompatible libraries
+sudo apt remove ibverbs-providers:amd64 librdmacm1:amd64 librdmacm-dev:amd64 libibverbs-dev:amd64 libopensm5a libosmvendor4 libosmcomp3 -y
+
+# Install the MLNX OFED driver against the kernel 5.4.0
 sudo ./mlnxofedinstall --add-kernel-support
-# update initramfs (see prompt of installation, may not be needed)
-sudo dracut -f
-# enable driver
-sudo /etc/init.d/openibd restart
+```
 
-# to uninstall the driver
-sudo ./uninstall.sh
+### 3.3.2 Enable the *opensm* and *openibd* services
 
-# On Ubuntu, a bug needs to be fixed every time after the driver is installed:
-# delete old symlinks
-sudo update-rc.d opensmd remove -f
-# find the line `# Default start` and change it to `# Default-Start: 2 3 4 5`
-sudo vim /etc/init.d/opensmd
+(1) Enable and start the ***openibd*** service
+
+```bash
+sudo systemctl enable openibd
+sudo systemctl start  openibd
+
+# confirm the service is running and enabled:
+sudo systemctl status openibd
+
+# the log shown as:
+● openibd.service - openibd - configure Mellanox devices
+   Loaded: loaded (/lib/systemd/system/openibd.service; enabled; vendor preset: enabled)
+   Active: active (exited) since Mon 2022-05-02 14:40:53 CST; 1min 24s ago
+    
+```
+
+(2) Enable and start the ***opensmd*** service:
+
+```bash
 sudo systemctl enable opensmd
-# before reboot, may need to manually enable the service
-sudo service opensmd start
-# check the status of the service, should be active
-service opensmd status
+sudo systemctl start opensmd
+
+# confirm the service status
+sudo systemctl status opensmd
+
+# the log shown as:
+opensmd.service - LSB: Manage OpenSM
+   Loaded: loaded (/etc/init.d/opensmd; generated)
+   Active: active (running) since Mon 2022-05-02 14:53:39 CST; 10s ago
+
+#
+# Warning: you may encounter the problem:
+#
+opensmd.service is not a native service, redirecting to systemd-sysv-install.
+Executing: /lib/systemd/systemd-sysv-install enable opensmd
+update-rc.d: error: no runlevel symlinks to modify, aborting!
+
+#
+# Please refer to the **Question #2** in FAQ for how to solve this problem
+#
 ```
 
-### 1.3 Build remoteswap
+### 3.3.3 Confirm the InfiniBand is available
 
-```python
-cd MemLiner/scripts
-## change IP in code into IP of the memory server
-## search "10.0.0.4" in remoteswap folder, and change the 2 IP occurances with that of ib0 on memory server, on both servers
+Check the InfiniBand information
 
-# On memory server:
-cd scripts/server
+```bash
+# Get the InfiniBand information
+ibstat
+
+# the log shown as:
+# Adapter's stat should be Active.
+
+	Port 1:
+		State: Active
+		Physical state: LinkUp
+		Rate: 100
+		Base lid: 3
+		LMC: 0
+		SM lid: 3
+		Capability mask: 0x2651e84a
+		Port GUID: 0x0c42a10300605e88
+		Link layer: InfiniBand
+```
+
+### 3.3.4 For other OS distributions
+
+(1)  For CentOS 7.7
+
+Install the necessary libraries
+
+```bash
+sudo yum install -y gtk2 atk cairo tcl tk
+```
+
+Download the MLNX OFED driver for CentOS 7.7
+
+```bash
+wget https://content.mellanox.com/ofed/MLNX_OFED-4.9-2.2.4.0/MLNX_OFED_LINUX-4.9-2.2.4.0-rhel7.7-x86_64.tgz
+```
+
+And then, repeat the steps from 3.3.1 to 3.3.3.
+
+## 3.4 Build the RemoteSwap data path
+
+The user needs to build the rswap on both the CPU server and memory servers.
+
+### 3.4.1  Configuration
+
+(1) IP configuration
+
+Assign memory server’s ip address to both the CPU server and memory servers. Take guest@zion-4.cs.ucla.edu  as example. It’s InfiniBand IP address is (IP:10.0.0.4) : 
+
+```cpp
+// (1) CPU server
+// Repalce the client/rswap_rdma.c:783:	char ip[] = "memory.server.ib.ip";
+// to:
+${HOME}/Memliner/scrips/client/rswap_rdma.c:783:	char ip[] = "10.0.0.4";
+
+// (2) Memory server
+// Replace the server/rswap_server.cpp:61:	const char *ip_str = "memory.server.ib.ip";
+// to:
+${HOME}/server/rswap_server.cpp:61:	const char *ip_str = "10.0.0.4";
+```
+
+(2) available cores configuration
+
+Replace the macro, `ONLINE_CORES`, defined in `MemLiner/scripts/server/rswap_server.hpp` to the number of cores of the CPU server (which can be printed by command line, `nproc` , on the CPU server.)
+
+```cpp
+${HOME}/MemLiner/scripts/server/rswap_server.hpp:38: #define ONLINE_CORES 16
+```
+
+### 3.4.2 Build the RemoteSwap datapah
+
+Build the client end on CPU server, e.g., guest@zion-1.cs.ucla.edu
+
+```bash
+cd ${HOME}/MemLiner/scripts/client
 make clean && make
+```
 
-# On CPU server:
-## change $home_dir in client/manage_rswap_client.sh to your home directory
-cd scripts/client
+(2) Build the server end on memory server, e.g., guset@zion-4.cs.ucla.edu
+
+```bash
+cd ${HOME}/MemLiner/scripts/server
 make clean && make
 ```
 
-### 1.4 Running remoteswap
+And then, please refer to **Section 1.1** for how to connect the CPU server and the memory server.
 
-```python
-# launch remoteswap server on memory server
-cd MemLiner/scripts/server
-tmux
-./rswap-server
+## 3.5 Build MemLiner (OpenJDK)
 
-# launch remoteswap client on CPU server
-cd MemLiner/scripts/client
-./manage_rswap_client.sh install
+Build MemLiner JDK. Please download and install jdk-12.0.2 and other dependent libraries to build the MemLiner (OpenJDK)
 
-# create cgroup to limit local memory size
-# on CPU server
-sudo cgcreate -t $USER -a $USER -g memory:/memctl
-```
-
-### 1.5 Build JVM
-
-```python
-# Download JDK12 to your home folder. Suppose its path is PATH
-cd MemLiner/JDK
-./configure --with-boot-jdk=PATH --with-debug-level=release
+```bash
+cd ${HOME}/MemLiner/JDK
+./configure --with-boot-jdk=$HOME/jdk-12.0.2 --with-debug-level=release
 make JOBS=32
 ```
 
-When following the instructions below to run MemLiner on your machines, Zion-1 refers to the CPU server and Zion-4 refers to the memory server.
+# FAQ
 
-## 2. Running Spark
+## Question#1  Enable opensmd service in Ubuntu 18.04
 
-All the following operations are on Zion-1.
-
-First change directory to the spark folder on Zion-1 and start the master and worker:
+### Error message:
 
 ```bash
-cd /mnt/ssd/guest/spark-3.0.0-preview2-bin-hadoop3.2
+opensmd.service is not a native service, redirecting to systemd-sysv-install.
+Executing: /lib/systemd/systemd-sysv-install enable opensmd
+update-rc.d: error: no runlevel symlinks to modify, aborting!
 ```
 
-Configure the default JDK to unmodified JDK and start the master and worker:
+### 1.1 Update the service start level in /etc/init.d/opensmd
+
+The original /etc/init.d/opensmd 
 
 ```bash
-sudo update-alternatives --config java
-# select 1
-
-./sbin/start-all.sh
+  8 ### BEGIN INIT INFO
+  9 # Provides: opensm
+ 10 # Required-Start: $syslog openibd
+ 11 # Required-Stop: $syslog openibd
+ 12 # Default-Start: null
+ 13 # Default-Stop: 0 1 6
+ 14 # Description:  Manage OpenSM
+ 15 ### END INIT INFO
 ```
 
-After editing `conf/spark-defaults.conf` according to instructions below, restart the master and worker to make sure the new config is used.
+Change  /etc/init.d/opensmd  to :
 
 ```bash
-./sbin/stop-all.sh
-./sbin/start-all.sh
+12 # Default-Start: 2 3 4 5
 ```
 
-After done with app spark apps, stop the master and worker
+### 1.2 Enable && Start the *opensmd* service
 
 ```bash
-./sbin/stop-all.sh
+sudo update-rc.d opensmd remove -f
+sudo systemctl enable opensmd
+sudo systemctl start opensmd
+
+# confirm the service status
+sudo systemctl status opensmd
+
+# The log shown as:
+opensmd.service - LSB: Manage OpenSM
+   Loaded: loaded (/etc/init.d/opensmd; generated)
+   Active: active (running) since Mon 2022-05-02 14:53:39 CST; 10s ago
 ```
-
-### 2.1 Baseline
-
-1. Edit the `conf/spark-defaults.conf` , comment Line 43 and uncomment Line 42, and restart master and worker.
-2. Use the following command to run baseline:
-    
-    ```bash
-    # application: lr, km, tc
-    # local_ratio: 100, 25, 13
-    ./scripts/baseline.sh application local_ratio 
-    ```
-    
-
-### 2.2 MemLiner
-
-1. Edit the `conf/spark-defaults.conf` , comment Line 42 and uncomment Line 43, and restart master and worker.
-2. Use the following command to run MemLiner:
-    
-    ```bash
-    # application: lr, km, tc
-    # local_ratio: 25, 13
-    ./scripts/memliner.sh application local_ratio 
-    ```
-    
-
-## 3. Running Neo4J
-
-All the following operations are on Zion-1.
-
-Change directory to the Neo4j folder on Zion-1:
-
-```bash
-cd /mnt/ssd/guest/neo4j
-```
-
-1. Configure the JDK:
-    
-    ```bash
-    sudo update-alternatives --config java
-    # select 1 for baseline and select 2 for MemLiner.
-    ```
-    
-2. Open `/etc/neo4j/neo4j.conf` and uncomment the lines that contains the corresponding parameters.
-3. Start Neo4J. Wait until the log `INFO Started.` is printed before running the apps.
-    
-    ```bash
-    # tool: baseline, memliner
-    # local_ratio: 100, 25, 13
-    ./start-neo4j.sh tool local_ratio
-    ```
-    
-4. Running applications. Use `bash` to make `time -p` functional.
-    1. Neo4J PageRank
-        
-        ```python
-        (time -p (cypher-shell -u neo4j -p neo4j -f Neo4j/apoc_batch_pagerank_stats.cypher) 2>&1) | tee -a logs/npr.log
-        ```
-        
-    2. Neo4J Triangle Counting
-        
-        ```python
-        (time -p (cypher-shell -u neo4j -p neo4j -f Neo4j/apoc_batch_triangle_count_stats.cypher) 2>&1) | tee -a logs/ntc.log
-        ```
-        
-    3. Neo4J Degree Centrality
-        
-        ```python
-        (time -p (cypher-shell -u neo4j -p neo4j -f Neo4j/apoc_batch_degree_centrality_stats_mutate.cypher) 2>&1) | tee -a logs/ndc.log
-        ```
-        
-5. Use `ctrl+C` Stop the Neo4j server after running each application and repeat from step 1.
-
-## 4. Running Cassandra
-
-Change directory to the Cassandra folder on Zion-1:
-
-```python
-cd /mnt/ssd/guest/cassandra
-```
-
-### 4.1 Baseline
-
-1. Edit the `bin/cassandra` , comment Line 197 and uncomment Line 196.
-2. Edit `conf/jvm11-server.options` and uncomment corresponding parameters to the configuration you want to test. And then start Cassandra. Wait until the script return before starting workloads.
-    
-    ```python
-    # local_ratio: 100, 25, 13
-    ./scripts/start-cassandra.sh baseline local_ratio
-    ```
-    
-3. On zion-4, change to the cassandra scripts directory and run the workload:
-    
-    ```python
-    cd /mnt/ssd/guest/scripts-repo/cassandra
-    
-    # workload: UI, RI, II
-    # local_ratio: 100, 25, 13
-    ./run_workload.sh baseline workload local_ratio
-    ```
-    
-4. Stop Cassandra on zion-1 after running each workload and repeat from step 1.
-    
-    ```python
-    ./bin/stop-server
-    ```
-    
-
-### 4.2 MemLiner
-
-1. Edit the `bin/cassandra` , comment Line 196 and uncomment Line 197.
-2. Edit `conf/jvm11-server.options` and uncomment corresponding parameters to the configuration you want to test. Start Cassandra. Wait until the script return before starting workloads.
-    
-    ```python
-    # local_ratio: 25, 13
-    ./start_cassandra.sh memliner local_ratio
-    ```
-    
-3. On zion-4, change to the cassandra scripts directory:
-    
-    ```python
-    cd /mnt/ssd/guest/scripts-repo/cassandra
-    
-    # workload: UI, RI, II
-    # local_ratio: 25, 13
-    ./run_workload.sh memliner workload local_ratio
-    ```
-    
-4. Stop Cassandra on zion-1 after running each workload and repeat from step 1.
-    
-    ```python
-    ./bin/stop-server.sh
-    ```
-    
-
-## 5. Running TradeSoap
-
-Change to the tradesoap directory on zion-1:
-
-```python
-cd /mnt/ssd/guest/tradesoap
-```
-
-1. For baseline, run
-    
-    ```python
-    # local_ratio: 100, 25, 13
-    ./run_dacapo.sh baseline local_ratio
-    ```
-    
-2. For MemLiner, run
-    
-    ```python
-    # local_ratio: 25, 13
-    ./run_dacapo.sh memliner local_ratio
-    ```
-    
-
-You might encounter AxisFault error when running baseline or MemLiner. You can just ignore it because that’s tradesoap’s bug.
-
-## 6. Running QuickCached
-
-```bash
-# on Zion-1
-cd ~/quickcached
-# start quickcached server
-# tool: baseline, memliner
-# local_ratio: 100, 25, 13
-# app: qwd, qrd
-./qcd.sh tool local_ratio app
-# e.g., run QWD with baseline JVM under 25% local cache ratio
-./qcd.sh baseline 25 qwd
-
-# on Zion-4
-cd ~/scripts-repo/memcached
-# run QWD. and write log to ~/logs-qc/${logfile}.log
-./ycsb-memcached-helper.sh memliner-quickcached-writedominant ${logfile}
-# run QRD. and write log to ~/logs-qc/${logfile}.log
-./ycsb-memcached-helper.sh memliner-quickcached-readdominant  ${logfile}
-
-# on Zion-1
-## use ctrl+C to kill Quickcached server
-```
-
-## 7. Results Visualization
-
-To visualize the results, first we need to collect the execution time of applications and fill them in a few csv files. Then use a script to draw the figure.
-
-### 7.1 Collect Execution Time
-
-For Spark applications, when each application is run to the end on Zion-1, you can see the execution time formatted as below:
-
-```
-22/03/09 13:18:07 INFO ShutdownHookManager: Deleting directory ...
-real 393.86
-user 37.71
-sys 2.79
-```
-
-The number after `real` is the execution time of the spark application, in seconds.
-
-For Neo4j apps, find the log files under the logs folder in the command on Zion-1. And like Spark, in the end of the log file or stdout, the number after `real` is the execution time of the spark application, in seconds.
-
-For Cassandra applications, on the ycsb client on Zion-4, under `/mnt/ssd/guest/scripts-repo/cassandra/logs`, you can find all the logs when running Cassandra apps. Select the run log, and you can see the run time of the app at the bottom of the file, as below:
-
-```
-2022-04-12 12:53:48:413 335 sec: 10000000 operations; ...
-[OVERALL], RunTime(ms), 335107
-[OVERALL], Throughput(ops/sec), 29841.214895540827
-[TOTAL_GCS_G1_Young_Generation], Count, 8
-```
-
-The number after `[OVERALL], RunTime(ms),` is the execution time, in milliseconds.
-
-The same information is printed in stdout when running the apps.
-
-For Quickcached apps, the method is the same as Cassandra, except that the log folder is `/mnt/ssd/guest/logs-qc` on Zion-4.
-
-For TradeSoap, after the application is finished on Zion-1, you can see the time as the output.
-
-### 7.2 Generate the Plot.
-
-On Zion-1. please change to this directory: `/mnt/ssd/guest/scripts-repo/projects/MemLiner/figures`, where you can find all data files and the plot script. First, fill in the execution time data (in seconds), to the three data file: `ae_baseline_time.csv`, `ae_memliner_time.csv`, and `ae_all_local_time.csv`. The order of data is denoted by the first row and the first column of the files. Then, run the script:
-
-```
-cd /mnt/ssd/guest/scripts-repo/projects/MemLiner/figures
-python3 memliner_eval_ae.py
-```
-
-The figure should appear under the same directory named `evaluation51-ae.pdf`.
