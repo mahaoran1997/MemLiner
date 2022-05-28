@@ -780,7 +780,7 @@ void bind_remote_memory_chunks(struct rdma_session_context *rdma_session)
 int init_rdma_sessions(struct rdma_session_context *rdma_session)
 {
 	int ret = 0;
-	char ip[] = "memory.server.ib.ip"; // the memory server ip
+	char ip[] = "10.0.0.4"; // the memory server ip
 	uint16_t port = 9400;
 
 	// 1) RDMA queue information

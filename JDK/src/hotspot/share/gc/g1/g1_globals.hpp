@@ -100,6 +100,10 @@
           "Heuristics Conc.")                                               \
           range(0, max_uintx)                                               \
                                                                             \
+  product(size_t, MemRecSize, 100*G,                                        \
+          "Heuristics Remark.")                                             \
+          range(0, 200*G)                                                   \
+                                                                            \
   product(bool, ConcRon, false,                                             \
           "Heuristics ron Conc.")                                           \
                                                                             \

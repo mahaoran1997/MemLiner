@@ -1227,7 +1227,13 @@ void G1ConcurrentMark::remark() {
 		}
 		{
 			GCTraceTime(Debug, gc, phases) debug("Reclaim Empty Regions", _gc_timer_cm);
+			size_t heap_used_bytes_before_gc = _g1h->used();
+			// tty->print("Before reclaim empty regions: 0x%lu MB\n", heap_used_bytes_before_gc/1024/1024);
 			reclaim_empty_regions();
+			size_t heap_used_bytes_after_gc = _g1h->used();
+			// tty->print("After reclaim empty regions: 0x%lu MB\n", heap_used_bytes_after_gc/1024/1024);
+			if(heap_used_bytes_before_gc > heap_used_bytes_after_gc)
+				_g1h->_remark_reclaimed_bytes += heap_used_bytes_before_gc - heap_used_bytes_after_gc;
 		}
 
 		// Clean out dead classes
