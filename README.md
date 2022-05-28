@@ -398,7 +398,7 @@ A graph data base. We assume the users execute the applications on a pair of con
 
 ```bash
 # switch to the directory
-cd ${HOME}/MemLiner/MemLinerScripts
+cd ${HOME}/MemLinerScripts
 
 # launch tmux
 tmux
@@ -485,7 +485,7 @@ Assume we are on the CPU server, e.g., `guest@zion-1.cs.ucla.edu`.  ****The appl
 
 ```bash
 # switch to the directory
-cd ${HOME}/MemLiner/MemLinerScripts
+cd ${HOME}/MemLinerScripts
 
 # launch tmux
 tmux
@@ -526,7 +526,7 @@ Assume we are on the CPU server, e.g., `guest@zion-1.cs.ucla.edu`. The applicati
 
 ```bash
 # switch to the directory
-cd ${HOME}/MemLiner/MemLinerScripts
+cd ${HOME}/MemLinerScripts
 
 # launch tmux
 tmux
@@ -585,7 +585,7 @@ Assume we are on the CPU server, e.g., `guest@zion-1.cs.ucla.edu`. The applicati
 
 ```bash
 # switch to the directory
-cd ${HOME}/MemLiner/MemLinerScripts
+cd ${HOME}/MemLinerScripts
 
 # launch tmux
 tmux
