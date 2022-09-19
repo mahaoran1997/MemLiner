@@ -502,7 +502,7 @@ void G1PFTask::drain_local_queue(bool partially) {
   //     ret = _task_queue->pop_global(entry);
   //   }
   // }
-  while(_words_scanned < max_size && _objs_scanned < max_num_objects && !_cm->has_aborted()) {
+  while(_words_scanned < max_size && _objs_scanned < max_num_objects) {
     // bool ret = _task_queue->pop_global(entry);
     bool ret = _task_queue->pop_local(entry);
     if(ret) scan_task_entry(entry);
@@ -510,11 +510,7 @@ void G1PFTask::drain_local_queue(bool partially) {
   }
   if(_words_scanned>0)
     log_debug(prefetch)("_word_scanned: %lu, _objs_scanned: %lu", _words_scanned, _objs_scanned);
-  if(!_cm->has_aborted())
-    move_entries_to_global_stack();
-  else{
-    _task_queue->set_empty();
-  }
+  move_entries_to_global_stack();
 }
 
 void G1PFTask::clear_mark_stats_cache(uint region_idx) {

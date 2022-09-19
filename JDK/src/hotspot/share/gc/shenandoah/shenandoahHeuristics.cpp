@@ -255,6 +255,8 @@ bool ShenandoahHeuristics::can_do_traversal_gc() {
 }
 
 bool ShenandoahHeuristics::should_degenerate_cycle() {
+  // Haoran: modify
+  // return false;
   return _degenerated_cycles_in_a_row <= ShenandoahFullGCThreshold;
 }
 

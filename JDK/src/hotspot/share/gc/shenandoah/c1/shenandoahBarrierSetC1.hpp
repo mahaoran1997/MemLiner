@@ -117,6 +117,44 @@ public:
 #endif // PRODUCT
 };
 
+// Haoran: modify
+class ShenandoahPrefetchBarrierStub: public CodeStub {
+  friend class ShenandoahBarrierSetC1;
+ private:
+  // bool _do_load;
+  LIR_Opr _base;
+  // LIR_Opr _pre_val;
+  LIR_PatchCode _patch_code;
+  CodeEmitInfo* _info;
+
+ public:
+  // Version that _does_ generate a load of the previous value from addr.
+  // addr (the address of the field to be read) must be a LIR_Address
+  // pre_val (a temporary register) must be a register;
+  ShenandoahPrefetchBarrierStub(LIR_Opr base, /*LIR_Opr pre_val,*/ LIR_PatchCode patch_code, CodeEmitInfo* info) :
+    /*_do_load(true),*/ _base(base), /*_pre_val(pre_val),*/
+    _patch_code(patch_code), _info(info)
+  {
+    // assert(_pre_val->is_register(), "should be temporary register");
+    assert(_base->is_register(), "should be the address of the field");
+  }
+
+  LIR_Opr base() const { return _base; }
+  LIR_PatchCode patch_code() const { return _patch_code; }
+  CodeEmitInfo* info() const { return _info; }
+  
+  virtual void emit_code(LIR_Assembler* e);
+  virtual void visit(LIR_OpVisitState* visitor) {
+    visitor->do_slow_case();
+    visitor->do_input(_base);
+  }
+#ifndef PRODUCT
+  virtual void print_name(outputStream* out) const { out->print("G1ReadBarrierStub"); }
+#endif // PRODUCT
+};
+
+
+
 class LIR_OpShenandoahCompareAndSwap : public LIR_Op {
  friend class LIR_OpVisitState;
 
@@ -178,21 +216,29 @@ public:
 class ShenandoahBarrierSetC1 : public BarrierSetC1 {
 private:
   CodeBlob* _pre_barrier_c1_runtime_code_blob;
+  
+  // Haoran: modify
+  CodeBlob* _prefetch_barrier_c1_runtime_code_blob;
 
   void pre_barrier(LIRGenerator* gen, CodeEmitInfo* info, DecoratorSet decorators, LIR_Opr addr_opr, LIR_Opr pre_val);
 
   LIR_Opr read_barrier(LIRGenerator* gen, LIR_Opr obj, CodeEmitInfo* info, bool need_null_check);
   LIR_Opr write_barrier(LIRGenerator* gen, LIR_Opr obj, CodeEmitInfo* info, bool need_null_check);
   LIR_Opr storeval_barrier(LIRGenerator* gen, LIR_Opr obj, CodeEmitInfo* info, DecoratorSet decorators);
+  
 
   LIR_Opr read_barrier_impl(LIRGenerator* gen, LIR_Opr obj, CodeEmitInfo* info, bool need_null_check);
   LIR_Opr write_barrier_impl(LIRGenerator* gen, LIR_Opr obj, CodeEmitInfo* info, bool need_null_check);
+
+  void prefetch_barrier(LIRGenerator* gen, LIR_Opr obj, CodeEmitInfo* info, bool need_null_check, bool need_patch);
+  void prefetch_barrier_impl(LIRGenerator* gen, LIR_Opr obj, CodeEmitInfo* info, bool need_null_check, bool need_patch);
 
   LIR_Opr ensure_in_register(LIRGenerator* gen, LIR_Opr obj);
 
 public:
   CodeBlob* pre_barrier_c1_runtime_code_blob() { return _pre_barrier_c1_runtime_code_blob; }
-
+  // Haoran: modify
+  CodeBlob* prefetch_barrier_c1_runtime_code_blob() { return _prefetch_barrier_c1_runtime_code_blob; }
 protected:
   virtual LIR_Opr resolve_address(LIRAccess& access, bool resolve_in_register);
 

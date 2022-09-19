@@ -64,6 +64,15 @@ inline WorkGang* ShenandoahHeap::workers() const {
   return _workers;
 }
 
+// Haoran: modify
+// inline WorkGang* ShenandoahHeap::mark_workers() const {
+//   return _mark_workers;
+// }
+
+inline WorkGang* ShenandoahHeap::prefetch_workers() const {
+  return _prefetch_workers;
+}
+
 inline WorkGang* ShenandoahHeap::get_safepoint_workers() {
   return _safepoint_workers;
 }

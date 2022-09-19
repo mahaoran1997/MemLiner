@@ -96,17 +96,6 @@
           "Number of entries in an PREFETCH log buffer.")                   \
           range(1, max_uintx)                                               \
                                                                             \
-  product(size_t, ConcHeuristics, 5,                                        \
-          "Heuristics Conc.")                                               \
-          range(0, max_uintx)                                               \
-                                                                            \
-  product(size_t, MemRecSize, 100*G,                                        \
-          "Heuristics Remark.")                                             \
-          range(0, 200*G)                                                   \
-                                                                            \
-  product(bool, ConcRon, false,                                             \
-          "Heuristics ron Conc.")                                           \
-                                                                            \
   develop(intx, G1SATBProcessCompletedThreshold, 20,                        \
           "Number of completed buffers that triggers log processing.")      \
           range(0, max_jint)                                                \

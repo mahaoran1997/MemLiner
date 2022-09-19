@@ -55,7 +55,9 @@ uint ShenandoahWorkerPolicy::calc_workers_for_conc_marking() {
     WorkerPolicy::calc_active_conc_workers(ConcGCThreads,
                                            active_workers,
                                            Threads::number_of_non_daemon_threads());
-  return _prev_conc_marking;
+  // Haoran: modify
+  // return _prev_conc_marking;
+  return _prev_conc_marking/4;
 }
 
 // Reuse the calculation result from init marking

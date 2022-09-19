@@ -48,6 +48,9 @@
 #include "memory/resourceArea.hpp"
 #include "oops/oop.inline.hpp"
 
+
+#include "gc/shenandoah/shenandoahConcurrentPrefetch.inline.hpp"
+
 template<UpdateRefsMode UPDATE_REFS>
 class ShenandoahInitMarkRootsClosure : public OopClosure {
 private:
@@ -262,6 +265,26 @@ public:
       while (satb_mq_set.apply_closure_to_completed_buffer(&cl));
       ShenandoahSATBThreadsClosure tc(&cl);
       Threads::threads_do(&tc);
+
+      // Haoran: modify
+      ShenandoahMarkTask t;
+      ShenandoahObjToScanQueue* pq = ShenandoahHeap::heap()->concurrent_prefetch()->task_queues()->claim_next();
+
+      while(ShenandoahHeap::heap()->concurrent_prefetch()->_in_pf) {
+        continue;
+      }
+
+      while(pq != NULL){
+        while(pq->pop(t)){
+          if(!heap->is_in_reserved(t.obj())) {
+            ShouldNotReachHere();
+          }
+          shenandoah_assert_correct(NULL, t.obj());
+          q->push(t);
+        }
+
+        pq = ShenandoahHeap::heap()->concurrent_prefetch()->task_queues()->claim_next();
+      }
     }
 
     ReferenceProcessor* rp;
@@ -356,6 +379,9 @@ void ShenandoahConcurrentMark::initialize(uint workers) {
 
   _task_queues = new ShenandoahObjToScanQueueSet((int) num_queues);
 
+  // Haoran: modify
+  _in_cm = 0;
+
   for (uint i = 0; i < num_queues; ++i) {
     ShenandoahObjToScanQueue* task_queue = new ShenandoahObjToScanQueue();
     task_queue->initialize();
@@ -404,6 +430,13 @@ void ShenandoahConcurrentMark::mark_from_roots() {
 
   task_queues()->reserve(nworkers);
 
+  // Haoran: modify
+  {
+    MutexLockerEx pl(CPF_lock, Mutex::_no_safepoint_check_flag);
+    CPF_lock->notify();
+  }
+
+
   {
     ShenandoahTerminationTracker term(ShenandoahPhaseTimings::conc_termination);
     ShenandoahTaskTerminator terminator(nworkers, task_queues());
@@ -442,9 +475,16 @@ void ShenandoahConcurrentMark::finish_mark_from_roots(bool full_gc) {
 
     StrongRootsScope scope(nworkers);
     ShenandoahTaskTerminator terminator(nworkers, task_queues());
+
+    // Haoran: modify
+    _heap->concurrent_prefetch()->task_queues()->clear_claimed();
+
     ShenandoahFinalMarkingTask task(this, &terminator, ShenandoahStringDedup::is_enabled());
     _heap->workers()->run_task(&task);
   }
+
+  // Haoran: modify
+  assert(_heap->concurrent_prefetch()->task_queues()->is_empty(), "Should be empty");
 
   assert(task_queues()->is_empty(), "Should be empty");
 
@@ -853,6 +893,10 @@ void ShenandoahConcurrentMark::cancel() {
 
   // Cancel SATB buffers.
   ShenandoahBarrierSet::satb_mark_queue_set().abandon_partial_marking();
+
+  // Haoran: modify
+  _in_cm = 0;
+  _heap->concurrent_prefetch()->cancel();
 }
 
 ShenandoahObjToScanQueue* ShenandoahConcurrentMark::get_queue(uint worker_id) {

@@ -1227,13 +1227,7 @@ void G1ConcurrentMark::remark() {
 		}
 		{
 			GCTraceTime(Debug, gc, phases) debug("Reclaim Empty Regions", _gc_timer_cm);
-			size_t heap_used_bytes_before_gc = _g1h->used();
-			// tty->print("Before reclaim empty regions: 0x%lu MB\n", heap_used_bytes_before_gc/1024/1024);
 			reclaim_empty_regions();
-			size_t heap_used_bytes_after_gc = _g1h->used();
-			// tty->print("After reclaim empty regions: 0x%lu MB\n", heap_used_bytes_after_gc/1024/1024);
-			if(heap_used_bytes_before_gc > heap_used_bytes_after_gc)
-				_g1h->_remark_reclaimed_bytes += heap_used_bytes_before_gc - heap_used_bytes_after_gc;
 		}
 
 		// Clean out dead classes
@@ -2069,7 +2063,7 @@ void G1ConcurrentMark::concurrent_cycle_abort() {
 	}
 
 	// Haoran: modify
-	// ShouldNotReachHere();
+	ShouldNotReachHere();
 
 	// Clear all marks in the next bitmap for the next marking cycle. This will allow us to skip the next
 	// concurrent bitmap clearing.
@@ -2095,15 +2089,6 @@ void G1ConcurrentMark::concurrent_cycle_abort() {
 	// This can be called either during or outside marking, we'll read
 	// the expected_active value from the SATB queue set.
 	satb_mq_set.set_active_all_threads(
-																 false, /* new active value */
-																 satb_mq_set.is_active() /* expected_active */);
-
-	// Haoran: modify
-	G1PrefetchQueueSet& pq_set = G1CollectedHeap::heap()->prefetch_queue_set();
-	pq_set.abandon_partial_marking();
-	// This can be called either during or outside marking, we'll read
-	// the expected_active value from the SATB queue set.
-	pq_set.set_active_all_threads(
 																 false, /* new active value */
 																 satb_mq_set.is_active() /* expected_active */);
 }

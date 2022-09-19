@@ -1525,8 +1525,7 @@ public:
 
 G1CollectedHeap::G1CollectedHeap(G1CollectorPolicy* collector_policy) :
 	CollectedHeap(),
-	_remark_reclaimed_bytes(0),
-	_have_done(0),
+	_have_done(false),
 	_young_gen_sampling_thread(NULL),
 	_workers(NULL),
 	_collector_policy(collector_policy),
@@ -3063,7 +3062,7 @@ G1CollectedHeap::do_collection_pause_at_safepoint(double target_pause_time_ms) {
 		// This call will decide whether this pause is an initial-mark
 		// pause. If it is, in_initial_mark_gc() will return true
 		// for the duration of this pause.
-		if(_have_done < ConcHeuristics && _remark_reclaimed_bytes < MemRecSize)
+		// if(!_have_done)
 			g1_policy()->decide_on_conc_mark_initiation();
 	}
 
@@ -3080,9 +3079,9 @@ G1CollectedHeap::do_collection_pause_at_safepoint(double target_pause_time_ms) {
 	bool should_start_conc_mark = collector_state()->in_initial_mark_gc();
 
 	// Haoran: modify
-	if(should_start_conc_mark) {
-		_have_done ++;
-	}
+	// if(should_start_conc_mark) {
+	// 	_have_done = 1;
+	// }
 
 	// Inner scope for scope based logging, timers, and stats collection
 	{

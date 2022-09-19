@@ -25,9 +25,14 @@
 #define SHARE_VM_GC_SHENANDOAH_SHENANDOAHSATBMARKQUEUESET_HPP
 
 #include "gc/shared/satbMarkQueue.hpp"
-#include "gc/shenandoah/shenandoahHeap.hpp"
+// #include "gc/shenandoah/shenandoahHeap.hpp"
 #include "runtime/mutex.hpp"
 #include "runtime/thread.hpp"
+
+// Haoran: modify
+#include "gc/shared/prefetchQueue.hpp"
+
+class ShenandoahHeap;
 
 class ShenandoahSATBMarkQueue: public SATBMarkQueue {
 public:
@@ -51,5 +56,24 @@ public:
   virtual SATBMarkQueue& satb_queue_for_thread(JavaThread* const t) const;
   virtual void filter(SATBMarkQueue* queue);
 };
+
+
+
+// Haoran: modify
+class ShenandoahPrefetchQueueSet : public PrefetchQueueSet {
+  ShenandoahHeap* _heap;
+
+public:
+  ShenandoahPrefetchQueueSet();
+
+  void initialize(ShenandoahHeap* heap,
+                  Monitor* cbl_mon,
+                  BufferNode::Allocator* allocator);
+
+  static void handle_zero_index_for_thread(JavaThread* t);
+  virtual PrefetchQueue& prefetch_queue_for_thread(JavaThread* const t) const;
+  virtual void filter(PrefetchQueue* queue);
+};
+
 
 #endif

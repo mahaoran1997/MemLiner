@@ -331,6 +331,10 @@
           "Number of entries in an SATB log buffer.")                       \
           range(1, max_uintx)                                               \
                                                                             \
+  experimental(size_t, ShenandoahPrefetchBufferSize, 128,                   \
+          "Number of entries in an PREFETCH log buffer.")                   \
+          range(1, max_uintx)                                               \
+                                                                            \
   experimental(uintx, ShenandoahSATBBufferFlushInterval, 100,               \
           "Forcefully flush non-empty SATB buffers at this interval. "      \
           "Time is in milliseconds.")                                       \
@@ -354,6 +358,9 @@
                                                                             \
   diagnostic(bool, ShenandoahWriteBarrier, true,                            \
           "Turn on/off write barriers in Shenandoah")                       \
+                                                                            \
+  diagnostic(bool, ShenandoahPrefetchBarrier, false,                        \
+          "Turn on/off prefetch barriers in Shenandoah")                    \
                                                                             \
   diagnostic(bool, ShenandoahReadBarrier, true,                             \
           "Turn on/off read barriers in Shenandoah")                        \

@@ -41,6 +41,9 @@ public:
   static oopDesc* write_barrier_JRT(oopDesc* src);
 
   static void shenandoah_clone_barrier(oopDesc* obj);
+
+  // Haoran: modify
+  static void write_ref_field_prefetch_entry(oopDesc* new_val, JavaThread* thread);
 };
 
 #endif // SHARE_VM_GC_SHENANDOAH_SHENANDOAHRUNTIME_HPP

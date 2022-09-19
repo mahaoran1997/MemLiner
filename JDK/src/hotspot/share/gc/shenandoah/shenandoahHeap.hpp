@@ -34,11 +34,16 @@
 #include "gc/shenandoah/shenandoahSharedVariables.hpp"
 #include "services/memoryManager.hpp"
 
+#include "gc/shared/ptrQueue.hpp"
+#include "gc/shenandoah/shenandoahSATBMarkQueueSet.hpp"
+
 class ConcurrentGCTimer;
 class ReferenceProcessor;
 class ShenandoahAllocTracker;
 class ShenandoahCollectorPolicy;
 class ShenandoahControlThread;
+// Haoran: modify
+class ShenandoahControlPrefetchThread;
 class ShenandoahGCSession;
 class ShenandoahHeuristics;
 class ShenandoahMarkingContext;
@@ -56,6 +61,12 @@ class ShenandoahTraversalGC;
 class ShenandoahVerifier;
 class ShenandoahWorkGang;
 class VMStructs;
+
+// Haoran: Modify
+class ShenandoahConcurrentPrefetch;
+
+class ShenandoahPrefetchQueueSet;
+
 
 class ShenandoahRegionIterator : public StackObj {
 private:
@@ -193,14 +204,29 @@ public:
 //
 private:
   uint _max_workers;
+
   ShenandoahWorkGang* _workers;
+  // Haoran: modify
+  // ShenandoahWorkGang* _mark_workers;
   ShenandoahWorkGang* _safepoint_workers;
+
+// Haoran: modify
+  uint _max_prefetch_workers;
+  ShenandoahWorkGang* _prefetch_workers;
 
 public:
   uint max_workers();
+// Haoran: modify
+  uint max_prefetch_workers();  
+
   void assert_gc_workers(uint nworker) NOT_DEBUG_RETURN;
 
   WorkGang* workers() const;
+
+  // Haoran: modify
+  WorkGang* prefetch_workers() const;
+
+
   WorkGang* get_safepoint_workers();
 
   void gc_threads_do(ThreadClosure* tcl) const;
@@ -434,10 +460,17 @@ private:
 //
 private:
   ShenandoahControlThread*   _control_thread;
+  // Haoran: modify
+  // ShenandoahControlPrefetchThread*   _control_prefetch_thread;
+
   ShenandoahCollectorPolicy* _shenandoah_policy;
   ShenandoahHeuristics*      _heuristics;
   ShenandoahFreeSet*         _free_set;
   ShenandoahConcurrentMark*  _scm;
+  // Haoran: modify
+  ShenandoahConcurrentPrefetch*  _spf;
+
+
   ShenandoahTraversalGC*     _traversal_gc;
   ShenandoahMarkCompact*     _full_gc;
   ShenandoahPacer*           _pacer;
@@ -445,6 +478,11 @@ private:
 
   ShenandoahAllocTracker*    _alloc_tracker;
   ShenandoahPhaseTimings*    _phase_timings;
+
+  // Haoran: modify
+  // ShenandoahConcurrentPrefetch* _pf;
+  ShenandoahControlPrefetchThread* _pf_thread;
+
 
   ShenandoahControlThread*   control_thread()          { return _control_thread;    }
   ShenandoahMarkCompact*     full_gc()                 { return _full_gc;           }
@@ -454,6 +492,9 @@ public:
   ShenandoahHeuristics*      heuristics()        const { return _heuristics;        }
   ShenandoahFreeSet*         free_set()          const { return _free_set;          }
   ShenandoahConcurrentMark*  concurrent_mark()         { return _scm;               }
+  // Haoran: modify
+  ShenandoahConcurrentPrefetch* concurrent_prefetch() const { return _spf; }
+  
   ShenandoahTraversalGC*     traversal_gc()            { return _traversal_gc;      }
   ShenandoahPacer*           pacer()             const { return _pacer;             }
 
@@ -631,6 +672,9 @@ private:
   // too many atomic updates. size_t/jint is too large, jbyte is too small.
   jushort** _liveness_cache;
 
+  // Haoran: modify
+  jushort** _prefetch_liveness_cache;
+
 public:
   inline ShenandoahMarkingContext* complete_marking_context() const;
   inline ShenandoahMarkingContext* marking_context() const;
@@ -660,7 +704,11 @@ public:
 
   // Liveness caching support
   jushort* get_liveness_cache(uint worker_id);
+  // Haoran: modify
+  jushort* get_prefetch_liveness_cache(uint worker_id);
   void flush_liveness_cache(uint worker_id);
+  // Haoran: modify
+  void flush_prefetch_liveness_cache(uint worker_id);
 
 // ---------- Evacuation support
 //
@@ -726,6 +774,14 @@ private:
 
   void try_inject_alloc_failure();
   bool should_inject_alloc_failure();
+
+public:
+  // Haoran: modify
+  BufferNode::Allocator _prefetch_mark_queue_buffer_allocator;
+  // ShenandoahPrefetchQueueSet _prefetch_queue_set;
+
+  // Haoran: modify
+  // ShenandoahPrefetchQueueSet* prefetch_queue_set() { return &_prefetch_queue_set; }
 };
 
 #endif // SHARE_VM_GC_SHENANDOAH_SHENANDOAHHEAP_HPP

@@ -75,7 +75,8 @@ ShenandoahBarrierSet::ShenandoahBarrierSet(ShenandoahHeap* heap) :
              NULL /* barrier_set_nmethod */,
              BarrierSet::FakeRtti(BarrierSet::ShenandoahBarrierSet)),
   _heap(heap),
-  _satb_mark_queue_set()
+  _satb_mark_queue_set(),
+  _prefetch_queue_set() // Haoran: modify
 {
 }
 
@@ -361,6 +362,8 @@ void ShenandoahBarrierSet::on_thread_attach(JavaThread* thread) {
   assert(ShenandoahThreadLocalData::satb_mark_queue(thread).is_empty(), "SATB queue should be empty");
   if (ShenandoahBarrierSet::satb_mark_queue_set().is_active()) {
     ShenandoahThreadLocalData::satb_mark_queue(thread).set_active(true);
+    // Haoran: modify
+    ShenandoahThreadLocalData::prefetch_queue(thread).set_active(true);
   }
   ShenandoahThreadLocalData::set_gc_state(thread, _heap->gc_state());
   ShenandoahThreadLocalData::initialize_gclab(thread);

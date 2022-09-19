@@ -30,6 +30,7 @@
 class LIR_Assembler;
 class ShenandoahPreBarrierStub;
 class ShenandoahWriteBarrierStub;
+class ShenandoahPrefetchBarrierStub;
 class StubAssembler;
 class StubCodeGenerator;
 #endif
@@ -79,6 +80,9 @@ public:
   void gen_pre_barrier_stub(LIR_Assembler* ce, ShenandoahPreBarrierStub* stub);
   void gen_write_barrier_stub(LIR_Assembler* ce, ShenandoahWriteBarrierStub* stub);
   void generate_c1_pre_barrier_runtime_stub(StubAssembler* sasm);
+  // Haoran: modify
+  void gen_prefetch_barrier_stub(LIR_Assembler* ce, ShenandoahPrefetchBarrierStub* stub);
+  void generate_c1_prefetch_barrier_runtime_stub(StubAssembler* sasm);
 #endif
 
   void cmpxchg_oop(MacroAssembler* masm,

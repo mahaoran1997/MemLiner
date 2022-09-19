@@ -51,6 +51,12 @@ void ShenandoahWriteBarrierStub::emit_code(LIR_Assembler* ce) {
   bs->gen_write_barrier_stub(ce, this);
 }
 
+// Haoran: modify
+void ShenandoahPrefetchBarrierStub::emit_code(LIR_Assembler* ce) {
+  ShenandoahBarrierSetAssembler* bs = (ShenandoahBarrierSetAssembler*)BarrierSet::barrier_set()->barrier_set_assembler();
+  bs->gen_prefetch_barrier_stub(ce, this);
+}
+
 void ShenandoahBarrierSetC1::pre_barrier(LIRGenerator* gen, CodeEmitInfo* info, DecoratorSet decorators, LIR_Opr addr_opr, LIR_Opr pre_val) {
   // First we test whether marking is in progress.
   BasicType flag_type;
@@ -126,6 +132,35 @@ LIR_Opr ShenandoahBarrierSetC1::read_barrier_impl(LIRGenerator* gen, LIR_Opr obj
   __ load(brooks_ptr_address, result, info ? new CodeEmitInfo(info) : NULL, lir_patch_none);
 
   __ branch_destination(done->label());
+
+
+  // Haoran: modify
+  // BasicType flag_type;
+  // if (in_bytes(PrefetchQueue::byte_width_of_active()) == 4) {
+  //   flag_type = T_INT;
+  // } else {
+  //   guarantee(in_bytes(PrefetchQueue::byte_width_of_active()) == 1,
+  //             "Assumption");
+  //   // Use unsigned type T_BOOLEAN here rather than signed T_BYTE since some platforms, eg. ARM,
+  //   // need to use unsigned instructions to use the large offset to load the satb_mark_queue.
+  //   flag_type = T_BOOLEAN;
+  // }
+  // LIR_Opr thrd = gen->getThreadPointer();
+  // LIR_Address* mark_active_flag_addr = new LIR_Address(thrd, in_bytes(ShenandoahThreadLocalData::prefetch_queue_active_offset()), flag_type);
+  // // Read the marking-in-progress flag.
+  // LIR_Opr flag_val = gen->new_register(T_INT);
+  // __ load(mark_active_flag_addr, flag_val);
+  // __ cmp(lir_cond_notEqual, flag_val, LIR_OprFact::intConst(0));
+
+  // LIR_PatchCode pre_val_patch_code = lir_patch_none;
+  // CodeStub* slow;
+  // if (patch)
+  //   pre_val_patch_code = lir_patch_normal;
+  // slow = new G1ReadBarrierStub(result, pre_val_patch_code, info);
+  
+  // __ branch(lir_cond_notEqual, T_INT, slow);
+
+
   return result;
 }
 
@@ -175,6 +210,56 @@ LIR_Opr ShenandoahBarrierSetC1::write_barrier_impl(LIRGenerator* gen, LIR_Opr ob
   return result;
 }
 
+  // Haoran: modify
+void ShenandoahBarrierSetC1::prefetch_barrier(LIRGenerator* gen, LIR_Opr obj, CodeEmitInfo* info, bool need_null_check, bool need_patch) {
+  if (UseShenandoahGC && ShenandoahPrefetchBarrier) {
+    prefetch_barrier_impl(gen, obj, info, need_null_check, need_patch);
+  }
+}
+
+void ShenandoahBarrierSetC1::prefetch_barrier_impl(LIRGenerator* gen, LIR_Opr obj, CodeEmitInfo* info, bool need_null_check, bool need_patch) {
+  assert(UseShenandoahGC && ShenandoahPrefetchBarrier, "Should be enabled");
+
+  LabelObj* done = new LabelObj();
+  if (need_null_check) {
+    __ cmp(lir_cond_equal, obj, LIR_OprFact::oopConst(NULL));
+    __ branch(lir_cond_equal, T_LONG, done->label());
+  }
+  // First we test whether marking is in progress.
+  BasicType flag_type;
+  if (in_bytes(PrefetchQueue::byte_width_of_active()) == 4) {
+    flag_type = T_INT;
+  } else {
+    guarantee(in_bytes(PrefetchQueue::byte_width_of_active()) == 1,
+              "Assumption");
+    // Use unsigned type T_BOOLEAN here rather than signed T_BYTE since some platforms, eg. ARM,
+    // need to use unsigned instructions to use the large offset to load the satb_mark_queue.
+    flag_type = T_BOOLEAN;
+  }
+  LIR_Opr thrd = gen->getThreadPointer();
+  LIR_Address* mark_active_flag_addr = new LIR_Address(thrd,
+                    in_bytes(ShenandoahThreadLocalData::prefetch_queue_active_offset()),
+                    flag_type);
+  // Read the marking-in-progress flag.
+  LIR_Opr flag_val = gen->new_register(T_INT);
+  __ load(mark_active_flag_addr, flag_val);
+  __ cmp(lir_cond_notEqual, flag_val, LIR_OprFact::intConst(0));
+  LIR_PatchCode pre_val_patch_code = lir_patch_none;
+  CodeStub* slow;
+  if (need_patch)
+    pre_val_patch_code = lir_patch_normal;
+  slow = new ShenandoahPrefetchBarrierStub(obj, pre_val_patch_code, info);
+  
+  __ branch(lir_cond_notEqual, T_INT, slow);
+  __ branch_destination(slow->continuation());
+  
+  
+  __ branch_destination(done->label());
+
+}
+
+
+
 LIR_Opr ShenandoahBarrierSetC1::ensure_in_register(LIRGenerator* gen, LIR_Opr obj) {
   if (!obj->is_register()) {
     LIR_Opr obj_reg = gen->new_register(T_OBJECT);
@@ -217,6 +302,9 @@ LIR_Opr ShenandoahBarrierSetC1::resolve_address(LIRAccess& access, bool resolve_
   } else {
     base = read_barrier(gen, base, access.access_emit_info(), needs_null_check);
   }
+
+  // Haoran: modify
+  prefetch_barrier(gen, base, access.access_emit_info(), needs_null_check, needs_patching);
 
   LIR_Opr addr_opr;
   if (is_array) {
@@ -289,10 +377,19 @@ LIR_Opr ShenandoahBarrierSetC1::resolve(LIRGenerator* gen, DecoratorSet decorato
   }
 }
 
+// Haoran: modify
 class C1ShenandoahPreBarrierCodeGenClosure : public StubAssemblerCodeGenClosure {
   virtual OopMapSet* generate_code(StubAssembler* sasm) {
     ShenandoahBarrierSetAssembler* bs = (ShenandoahBarrierSetAssembler*)BarrierSet::barrier_set()->barrier_set_assembler();
     bs->generate_c1_pre_barrier_runtime_stub(sasm);
+    return NULL;
+  }
+};
+
+class C1ShenandoahPrefetchBarrierCodeGenClosure : public StubAssemblerCodeGenClosure {
+  virtual OopMapSet* generate_code(StubAssembler* sasm) {
+    ShenandoahBarrierSetAssembler* bs = (ShenandoahBarrierSetAssembler*)BarrierSet::barrier_set()->barrier_set_assembler();
+    bs->generate_c1_prefetch_barrier_runtime_stub(sasm);
     return NULL;
   }
 };
@@ -302,4 +399,9 @@ void ShenandoahBarrierSetC1::generate_c1_runtime_stubs(BufferBlob* buffer_blob) 
   _pre_barrier_c1_runtime_code_blob = Runtime1::generate_blob(buffer_blob, -1,
                                                               "shenandoah_pre_barrier_slow",
                                                               false, &pre_code_gen_cl);
+
+  // Haoran: modify
+  C1ShenandoahPrefetchBarrierCodeGenClosure prefetch_code_gen_cl;
+  _prefetch_barrier_c1_runtime_code_blob = Runtime1::generate_blob(buffer_blob, -1, "shenandoah_prefetch_barrier_slow",
+                                                               false, &prefetch_code_gen_cl);
 }

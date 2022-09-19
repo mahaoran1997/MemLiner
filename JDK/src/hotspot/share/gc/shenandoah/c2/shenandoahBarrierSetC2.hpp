@@ -103,6 +103,9 @@ public:
   static const TypeFunc* shenandoah_clone_barrier_Type();
   static const TypeFunc* shenandoah_write_barrier_Type();
 
+  // Haoran: modify
+  static const TypeFunc* write_ref_field_prefetch_entry_Type();
+
   // This is the entry-point for the backend to perform accesses through the Access API.
   virtual void clone(GraphKit* kit, Node* src, Node* dst, Node* size, bool is_array) const;
 

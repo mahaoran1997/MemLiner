@@ -354,28 +354,25 @@ void G1ConcurrentMarkThread::run_service() {
         }
       }
 
-      if(ConcRon) {
-        if (!_cm->has_aborted()) {
-          G1ConcPhase p(G1ConcurrentPhase::REBUILD_REMEMBERED_SETS, this);
-          _cm->rebuild_rem_set_concurrently();
-        }
+      // if (!_cm->has_aborted()) {
+      //   G1ConcPhase p(G1ConcurrentPhase::REBUILD_REMEMBERED_SETS, this);
+      //   _cm->rebuild_rem_set_concurrently();
+      // }
 
-        double end_time = os::elapsedVTime();
-        // Update the total virtual time before doing this, since it will try
-        // to measure it to get the vtime for this marking.
-        _vtime_accum = (end_time - _vtime_start);
+      // double end_time = os::elapsedVTime();
+      // // Update the total virtual time before doing this, since it will try
+      // // to measure it to get the vtime for this marking.
+      // _vtime_accum = (end_time - _vtime_start);
 
-        if (!_cm->has_aborted()) {
-          delay_to_keep_mmu(g1_policy, false /* cleanup */);
-        }
+      // if (!_cm->has_aborted()) {
+      //   delay_to_keep_mmu(g1_policy, false /* cleanup */);
+      // }
 
-        if (!_cm->has_aborted()) {
-          CMCleanup cl_cl(_cm);
-          VM_G1Concurrent op(&cl_cl, "Pause Cleanup");
-          VMThread::execute(&op);
-        }
-      }
-      
+      // if (!_cm->has_aborted()) {
+      //   CMCleanup cl_cl(_cm);
+      //   VM_G1Concurrent op(&cl_cl, "Pause Cleanup");
+      //   VMThread::execute(&op);
+      // }
 
       // We now want to allow clearing of the marking bitmap to be
       // suspended by a collection pause.

@@ -38,6 +38,20 @@
 #include "opto/narrowptrnode.hpp"
 #include "opto/rootnode.hpp"
 
+// Haoran: modify
+const TypeFunc *ShenandoahBarrierSetC2::write_ref_field_prefetch_entry_Type() {
+  const Type **fields = TypeTuple::fields(2);
+  fields[TypeFunc::Parms+0] = TypeInstPtr::NOTNULL; // field value
+  fields[TypeFunc::Parms+1] = TypeRawPtr::NOTNULL; // thread
+  const TypeTuple *domain = TypeTuple::make(TypeFunc::Parms+2, fields);
+
+  // create result type (range)
+  fields = TypeTuple::fields(0);
+  const TypeTuple *range = TypeTuple::make(TypeFunc::Parms+0, fields);
+
+  return TypeFunc::make(domain, range);
+}
+
 ShenandoahBarrierSetC2* ShenandoahBarrierSetC2::bsc2() {
   return reinterpret_cast<ShenandoahBarrierSetC2*>(BarrierSet::barrier_set()->barrier_set_c2());
 }
@@ -298,6 +312,79 @@ void ShenandoahBarrierSetC2::satb_write_barrier_pre(GraphKit* kit,
   // Now the actual pointers into the thread
   Node* buffer_adr  = __ AddP(no_base, tls, __ ConX(buffer_offset));
   Node* index_adr   = __ AddP(no_base, tls, __ ConX(index_offset));
+
+
+
+
+// Haoran: modify
+
+  if (do_load && val != NULL) {
+    // Haoran: modify
+    const int prefetch_marking_offset = in_bytes(ShenandoahThreadLocalData::prefetch_queue_active_offset());
+    const int prefetch_index_offset   = in_bytes(ShenandoahThreadLocalData::prefetch_queue_index_offset());
+    const int prefetch_buffer_offset  = in_bytes(ShenandoahThreadLocalData::prefetch_queue_buffer_offset());
+    Node* prefetch_marking_adr = __ AddP(no_base, tls, __ ConX(prefetch_marking_offset));
+    Node* prefetch_buffer_adr  = __ AddP(no_base, tls, __ ConX(prefetch_buffer_offset));
+    Node* prefetch_index_adr   = __ AddP(no_base, tls, __ ConX(prefetch_index_offset));
+    BasicType active_type = in_bytes(SATBMarkQueue::byte_width_of_active()) == 4 ? T_INT : T_BYTE;
+
+    Node* prefetch_marking = __ load(__ ctrl(), prefetch_marking_adr, TypeInt::INT, active_type, Compile::AliasIdxRaw);
+
+    // if (!marking)
+    __ if_then(prefetch_marking, BoolTest::ne, zero, unlikely); {
+      BasicType index_bt = TypeX_X->basic_type();
+      assert(sizeof(size_t) == type2aelembytes(index_bt), "Loading Shenandoah PrefetchQueue::_index with wrong size.");
+      // val = __ load(__ ctrl(), adr, val_type, bt, alias_idx);
+      // if (pre_val != NULL)
+      __ if_then(val, BoolTest::ne, kit->null()); {
+        // const TypeFunc *tf = write_ref_field_prefetch_entry_Type();
+        // __ make_leaf_call(tf, CAST_FROM_FN_PTR(address, G1BarrierSetRuntime::write_ref_field_prefetch_entry), "write_ref_field_prefetch_entry", val, tls);
+        
+
+        // Haoran: modify
+        // // Convert the store obj pointer to an int prior to doing math on it
+        // // Must use ctrl to prevent "integerized oop" existing across safepoint
+        // Node* prefetch_cast =  __ CastPX(__ ctrl(), val);
+        // // Divide pointer by card size
+        // Node* prefetch_card_offset = __ URShiftX( prefetch_cast, __ ConI(CardTable::card_shift) );
+        // // Combine card table base and card offset
+        // Node* prefetch_card_adr = __ AddP(no_base, byte_map_base_node(kit), prefetch_card_offset );
+        // Node* young_card = __ ConI((jint)G1CardTable::g1_young_card_val());
+
+        // Node* prefetch_card_val = __ load(__ ctrl(), prefetch_card_adr, TypeInt::INT, T_BYTE, Compile::AliasIdxRaw);
+        //__ if_then(prefetch_card_val, BoolTest::ne, young_card); {
+
+          Node* prefetch_index   = __ load(__ ctrl(), prefetch_index_adr, TypeX_X, index_bt, Compile::AliasIdxRaw);
+          Node* prefetch_buffer  = __ load(__ ctrl(), prefetch_buffer_adr, TypeRawPtr::NOTNULL, T_ADDRESS, Compile::AliasIdxRaw);
+          // is the queue for this thread full?
+          __ if_then(prefetch_index, BoolTest::ne, zeroX, likely); {
+            // decrement the index
+            Node* prefetch_next_index = kit->gvn().transform(new SubXNode(prefetch_index, __ ConX(sizeof(intptr_t))));
+            // Now get the buffer location we will log the previous value into and store it
+            Node *prefetch_log_addr = __ AddP(no_base, prefetch_buffer, prefetch_next_index);
+            __ store(__ ctrl(), prefetch_log_addr, val, T_OBJECT, Compile::AliasIdxRaw, MemNode::unordered);
+            // update the index
+            __ store(__ ctrl(), prefetch_index_adr, prefetch_next_index, index_bt, Compile::AliasIdxRaw, MemNode::unordered);
+          } __ else_(); {
+            // logging buffer is full, call the runtime
+            const TypeFunc *tf = write_ref_field_prefetch_entry_Type();
+            __ make_leaf_call(tf, CAST_FROM_FN_PTR(address, ShenandoahRuntime::write_ref_field_prefetch_entry), "write_ref_field_prefetch_entry", val, tls);
+          } __ end_if();  // (!index)
+
+        //} __ end_if();
+        // Useless variables, just want to pretouch
+        // prefetch_index_adr = __ AddP(zeroX, val, zeroX);
+        // prefetch_marking_adr = __ load(__ ctrl(), prefetch_index_adr, TypeX_X, index_bt, Compile::AliasIdxRaw);
+
+      } __ end_if();  // (val != NULL)
+    } __ end_if();  // (!marking)
+  }
+
+
+
+
+
+
 
   // Now some of the values
   Node* marking;
@@ -923,7 +1010,8 @@ bool ShenandoahBarrierSetC2::is_gc_barrier_node(Node* node) const {
     return false;
   }
 
-  return strcmp(call->_name, "shenandoah_clone_barrier") == 0 ||
+  // Haoran: modify
+  return strcmp(call->_name, "write_ref_field_prefetch_entry") == 0 || strcmp(call->_name, "shenandoah_clone_barrier") == 0 ||
          strcmp(call->_name, "shenandoah_cas_obj") == 0 ||
          strcmp(call->_name, "shenandoah_wb_pre") == 0;
 }

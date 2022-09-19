@@ -21,38 +21,43 @@
  *
  */
 
-#ifndef SHARE_VM_GC_SHENANDOAH_SHENANDOAHCONCURRENTMARK_HPP
-#define SHARE_VM_GC_SHENANDOAH_SHENANDOAHCONCURRENTMARK_HPP
+#ifndef SHARE_VM_GC_SHENANDOAH_SHENANDOAHCONCURRENTPREFETCH_HPP
+#define SHARE_VM_GC_SHENANDOAH_SHENANDOAHCONCURRENTPREFETCH_HPP
 
 #include "gc/shared/taskqueue.hpp"
 #include "gc/shenandoah/shenandoahOopClosures.hpp"
 #include "gc/shenandoah/shenandoahPhaseTimings.hpp"
 #include "gc/shenandoah/shenandoahTaskqueue.hpp"
 
+// #include ""
+
 class ShenandoahStrDedupQueue;
 
-class ShenandoahConcurrentMark: public CHeapObj<mtGC> {
-  friend class ShenandoahTraversalGC;
+class ShenandoahConcurrentPrefetch: public CHeapObj<mtGC> {
 private:
   ShenandoahHeap* _heap;
   ShenandoahObjToScanQueueSet* _task_queues;
-
+  
 
 public:
+  bool _in_pf;
   void initialize(uint workers);
   void cancel();
 
 // ---------- Marking loop and tasks
 //
 private:
+  // Haoran: modify
   template <class T>
-  inline void do_task(ShenandoahObjToScanQueue* q, T* cl, jushort* live_data, ShenandoahMarkTask* task);
+  inline size_t do_task(ShenandoahObjToScanQueue* q, T* cl, jushort* live_data, ShenandoahMarkTask* task);
 
+  // Haoran: modify
   template <class T>
-  inline void do_chunked_array_start(ShenandoahObjToScanQueue* q, T* cl, oop array);
+  inline size_t do_chunked_array_start(ShenandoahObjToScanQueue* q, T* cl, oop array);
 
+  // Haoran: modify
   template <class T>
-  inline void do_chunked_array(ShenandoahObjToScanQueue* q, T* cl, oop array, int chunk, int pow);
+  inline size_t do_chunked_array(ShenandoahObjToScanQueue* q, T* cl, oop array, int chunk, int pow);
 
   inline void count_liveness(jushort* live_data, oop obj);
 
@@ -76,29 +81,29 @@ public:
   static inline void mark_through_ref(T* p, ShenandoahHeap* heap, ShenandoahObjToScanQueue* q, ShenandoahMarkingContext* const mark_context);
 
   void mark_from_roots();
-  void finish_mark_from_roots(bool full_gc);
+//   void finish_mark_from_roots(bool full_gc);
 
-  void mark_roots(ShenandoahPhaseTimings::Phase root_phase);
-  void update_roots(ShenandoahPhaseTimings::Phase root_phase);
+//   void mark_roots(ShenandoahPhaseTimings::Phase root_phase);
+//   void update_roots(ShenandoahPhaseTimings::Phase root_phase);
 
 // ---------- Weak references
 //
-private:
-  void weak_refs_work(bool full_gc);
-  void weak_refs_work_doit(bool full_gc);
+// private:
+//   void weak_refs_work(bool full_gc);
+//   void weak_refs_work_doit(bool full_gc);
 
-public:
-  void preclean_weak_refs();
+// public:
+//   void preclean_weak_refs();
 
 // ---------- Concurrent code cache
 //
-private:
-  ShenandoahSharedFlag _claimed_codecache;
+// private:
+//   ShenandoahSharedFlag _claimed_codecache;
 
-public:
-  void concurrent_scan_code_roots(uint worker_id, ReferenceProcessor* rp);
-  bool claim_codecache();
-  void clear_claim_codecache();
+// public:
+//   void concurrent_scan_code_roots(uint worker_id, ReferenceProcessor* rp);
+//   bool claim_codecache();
+//   void clear_claim_codecache();
 
 // ---------- Helpers
 // Used from closures, need to be public
@@ -107,10 +112,16 @@ public:
   ShenandoahObjToScanQueue* get_queue(uint worker_id);
   ShenandoahObjToScanQueueSet* task_queues() { return _task_queues; }
 
-// Haoran: modify
-  bool _in_cm;
-  void set_in_cm(bool in_cm) {_in_cm = in_cm;}
-  bool in_cm() {return _in_cm;}
+  // Haoran: modify
+  size_t _current_queue_index;
+
+  size_t prefetch_queue_index() { 
+    _current_queue_index ++;
+    JavaThreadIteratorWithHandle jtiwh;
+    size_t length = (size_t) jtiwh.length();
+    _current_queue_index %= length;
+    return _current_queue_index;
+  }
 
 };
 
