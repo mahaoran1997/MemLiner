@@ -2412,7 +2412,8 @@ void G1CMTask::drain_local_queue(bool partially) {
 
 	if (_task_queue->size() > target_size) {
 		G1TaskQueueEntry entry;
-		bool ret = _task_queue->pop_local(entry);
+		// bool ret = _task_queue->pop_local(entry);
+		bool ret = _task_queue->pop_global(entry);
 		while (ret) {
 			oop obj = entry.obj();
 			oop mask_obj = (oop)((size_t)obj & ((1ULL<<63)-1));
@@ -2429,7 +2430,8 @@ void G1CMTask::drain_local_queue(bool partially) {
 			if (_task_queue->size() <= target_size || has_aborted()) {
 				ret = false;
 			} else {
-				ret = _task_queue->pop_local(entry);
+				// ret = _task_queue->pop_local(entry);
+				ret = _task_queue->pop_global(entry);
 			}
 			
 		}
