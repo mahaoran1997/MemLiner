@@ -25,10 +25,10 @@ enum page_stat{
 //  a) Structure of the epoch_struct	
 //  |--4 bytes for eppch --|-- 4 bytes for legnth --|-- unsigned char array --|
 //  
-//  b) the coverd virtual memory range
-//  start addr: SEMERU_START_ADDR , embeded in the openjdk
-//  size      : controlled by user, via the function mmap_user_kernel_shared_mem()
-//              Do not exceed the range of [SEMERU_START_ADDR, SEMERU_END_ADDR)
+//  b) The coverd virtual memory range.
+//  start addr: SEMERU_START_ADDR , embedded in the openjdk.
+//  size      : controlled by user, via the function mmap_user_kernel_shared_mem().
+//              Do not exceed the range of [SEMERU_START_ADDR, SEMERU_END_ADDR).
 //
 // [TODO] epoch filed can be removed.
 // [TODO] Record the process ID. Right now only the data of
