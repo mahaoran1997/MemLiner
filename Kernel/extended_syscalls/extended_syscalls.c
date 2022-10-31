@@ -188,22 +188,6 @@ SYSCALL_DEFINE2(mmap_user_kernel_shared_mem, int __user *, user_buf,
 	tsk = current; // Get the task_struct of the user process
 	mm = tsk->mm;
 
-	// ? we are going to insert physical pages into the user virtual range
-	// specified by the vma. We don't modify the virtual memory range of the app.
-	// do we need the trylock ?
-	// Or do we realy need to acquire the semaphore of the mm_struct?
-	// if (unlikely(!down_read_trylock(&mm->mmap_sem))) {		
-	// 	// trylock failed, operate as a reader?
-	// 	down_read(&mm->mmap_sem);
-	// } else {
-	// 	// Why is this sleep necessary??
-	// 	// The above down_read_trylock() might have succeeded in
-	// 	// which case we'll have missed the might_sleep() from
-	// 	// down_read():
-	// 	//
-	// 	might_sleep();
-	// }
-
 	if(unlikely(!down_write_trylock(&mm->mmap_sem))) {
 		pr_err("%s, failed  to acquire the read lock of mm->mmap_sem\n", __func__);
 		ret = -1;
@@ -236,7 +220,6 @@ SYSCALL_DEFINE2(mmap_user_kernel_shared_mem, int __user *, user_buf,
 	pr_warn("%s, Pass the vma [start 0x%lx, end 0x%lx), vm_pgoff 0x%lx \n",
 		__func__, vma->vm_start, vma->vm_end, vma->vm_pgoff);
 
-
 	// 2) Kernel allocates memory for the user application
 	user_kernel_shared_data = vmalloc_user(size);
 	if (!user_kernel_shared_data) {
@@ -250,7 +233,6 @@ SYSCALL_DEFINE2(mmap_user_kernel_shared_mem, int __user *, user_buf,
 	//		__func__, (unsigned long)user_kernel_shared_data, size);
 	intialize_epoch_struct(user_kernel_shared_data, size);
 
-
 	// 3) Fill the vm_area_struct with kernel pages
 	// offset within the kernel space range is 0.
 	if(unlikely( ret=remap_vmalloc_range(vma, (void*)user_kernel_shared_data, 0))){
@@ -258,15 +240,8 @@ SYSCALL_DEFINE2(mmap_user_kernel_shared_mem, int __user *, user_buf,
 		goto out;
 	}
 
-
-	// Release the lock of mm_struct->mmap_sem
-	// no difference for down_read and down_read_trylock?
-	//up_read(&mm->mmap_sem);
-
-
 	pr_warn("%s, user space memory[0x%lx, 0x%lx) is mapped to kernel space memory [0x%lx, 0x%lx)\n",
 		__func__, uaddr, uaddr+size, (unsigned long)user_kernel_shared_data, (unsigned long)(user_kernel_shared_data + size) );
-
 
 out:
 	return ret;

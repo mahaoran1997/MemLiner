@@ -70,7 +70,7 @@
 
  #define SEMERU_START_ADDR   	((unsigned long)0x400000000000)	// Assume both CPU server and Memory server start at this address
  #define REGION_SIZE_GB    	4UL  	// RDMA manage granularity, not the Heap Region.
- #define MAX_REGION_NUM     	12UL	// 48GB per process
+ #define MAX_REGION_NUM     12UL	// 48GB per process
  #define SEMERU_END_ADDR	SEMERU_START_ADDR+ MAX_REGION_NUM*REGION_SIZE_GB*ONE_GB
  #define SLOW_PATH_REGION	4UL  // count at region granularity
  #define FAST_PATH_REGION	(MAX_REGION_NUM-SLOW_PATH_REGION)
