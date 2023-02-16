@@ -400,5 +400,8 @@
                                                                             \
   experimental(bool, ShenandoahLoopOptsAfterExpansion, true,                \
           "Attempt more loop opts after barrier expansion")                 \
+                                                                            \
+  experimental(bool, ShenandoahConcurrentEvac, true,                        \
+          "Doing normal concurrent evacuation concurrently")                \
 
 #endif // SHARE_GC_SHENANDOAH_SHENANDOAH_GLOBALS_HPP

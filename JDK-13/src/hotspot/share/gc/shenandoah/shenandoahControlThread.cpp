@@ -390,8 +390,14 @@ void ShenandoahControlThread::service_concurrent_normal_cycle(GCCause::Cause cau
   // This may be skipped if there is nothing to evacuate.
   // If so, evac_in_progress would be unset by collection set preparation code.
   if (heap->is_evacuation_in_progress()) {
-    // Concurrently evacuate
-    heap->entry_evac();
+    if (ShenandoahConcurrentEvac) {
+      // Concurrently evacuate
+      heap->entry_evac();
+    }
+    else {
+      // STW Evacuate
+      heap->vmop_entry_stw_evac();
+    }
     if (check_cancellation_or_degen(ShenandoahHeap::_degenerated_evac)) return;
 
     // Perform update-refs phase, if required. This phase can be skipped if heuristics

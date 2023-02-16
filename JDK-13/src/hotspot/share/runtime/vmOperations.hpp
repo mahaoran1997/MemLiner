@@ -106,6 +106,7 @@
   template(ShenandoahInitMark)                    \
   template(ShenandoahFinalMarkStartEvac)          \
   template(ShenandoahFinalEvac)                   \
+  template(ShenandoahSTWEvac)                     \
   template(ShenandoahInitTraversalGC)             \
   template(ShenandoahFinalTraversalGC)            \
   template(ShenandoahInitUpdateRefs)              \

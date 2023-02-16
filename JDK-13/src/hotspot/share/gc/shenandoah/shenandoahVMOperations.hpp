@@ -77,6 +77,14 @@ public:
   virtual  void doit();
 };
 
+class VM_ShenandoahSTWEvac: public VM_ShenandoahOperation {
+public:
+  VM_ShenandoahSTWEvac() : VM_ShenandoahOperation() {};
+  VM_Operation::VMOp_Type type() const { return VMOp_ShenandoahSTWEvac; }
+  const char* name()             const { return "Shenandoah STW Evacuation"; }
+  virtual  void doit();
+};
+
 class VM_ShenandoahDegeneratedGC: public VM_ShenandoahReferenceOperation {
 private:
   // Really the ShenandoahHeap::ShenandoahDegenerationPoint, but casted to int here

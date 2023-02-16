@@ -2308,6 +2308,15 @@ void ShenandoahHeap::vmop_entry_final_mark() {
   VMThread::execute(&op); // jump to entry_final_mark under safepoint
 }
 
+void ShenandoahHeap::vmop_entry_stw_evac() {
+  TraceCollectorStats tcs(monitoring_support()->stw_collection_counters());
+  ShenandoahGCPhase total(ShenandoahPhaseTimings::total_pause_gross);
+  ShenandoahGCPhase phase(ShenandoahPhaseTimings::stw_evac_gross);
+
+  VM_ShenandoahSTWEvac op;
+  VMThread::execute(&op); // jump to entry_final_evac under safepoint
+}
+
 void ShenandoahHeap::vmop_entry_final_evac() {
   TraceCollectorStats tcs(monitoring_support()->stw_collection_counters());
   ShenandoahGCPhase total(ShenandoahPhaseTimings::total_pause_gross);
@@ -2402,6 +2411,16 @@ void ShenandoahHeap::entry_final_mark() {
                               "final marking");
 
   op_final_mark();
+}
+
+void ShenandoahHeap::entry_stw_evac() {
+  ShenandoahGCPhase total_phase(ShenandoahPhaseTimings::total_pause);
+  ShenandoahGCPhase phase(ShenandoahPhaseTimings::stw_evac);
+  static const char* msg = "Pause STW Evac";
+  GCTraceTime(Info, gc) time(msg, gc_timer());
+  EventMark em("%s", msg);
+
+  op_stw_evac();
 }
 
 void ShenandoahHeap::entry_final_evac() {

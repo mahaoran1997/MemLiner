@@ -124,6 +124,8 @@ class outputStream;
                                                                                         \
   f(final_evac_gross,                               "Pause Final Evac (G)")             \
   f(final_evac,                                     "Pause Final Evac (N)")             \
+  f(stw_evac_gross,                                 "Pause STW Evac (G)")               \
+  f(stw_evac,                                       "Pause STW Evac (N)")               \
                                                                                         \
   f(init_update_refs_gross,                         "Pause Init  Update Refs (G)")      \
   f(init_update_refs,                               "Pause Init  Update Refs (N)")      \
