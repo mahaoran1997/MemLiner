@@ -331,6 +331,10 @@
           "Number of entries in an SATB log buffer.")                       \
           range(1, max_uintx)                                               \
                                                                             \
+  experimental(size_t, ShenandoahPrefetchBufferSize, 128,                   \
+          "Number of entries in an PREFETCH log buffer.")                   \
+          range(1, max_uintx)                                               \
+                                                                            \
   experimental(uintx, ShenandoahSATBBufferFlushInterval, 100,               \
           "Forcefully flush non-empty SATB buffers at this interval. "      \
           "Time is in milliseconds.")                                       \
@@ -345,6 +349,9 @@
                                                                             \
   experimental(bool, ShenandoahSuspendibleWorkers, false,                   \
           "Suspend concurrent GC worker threads at safepoints")             \
+                                                                            \
+  experimental(bool, ShenandoahPrefetchBarrier, true,                       \
+          "Turn on/off enqueuing of oops for prefetch barriers")            \
                                                                             \
   diagnostic(bool, ShenandoahSATBBarrier, true,                             \
           "Turn on/off SATB barriers in Shenandoah")                        \

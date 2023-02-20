@@ -30,6 +30,7 @@
 class LIR_Assembler;
 class ShenandoahPreBarrierStub;
 class ShenandoahLoadReferenceBarrierStub;
+class ShenandoahPrefetchBarrierStub;
 class StubAssembler;
 #endif
 class StubCodeGenerator;
@@ -75,6 +76,9 @@ public:
   void gen_pre_barrier_stub(LIR_Assembler* ce, ShenandoahPreBarrierStub* stub);
   void gen_load_reference_barrier_stub(LIR_Assembler* ce, ShenandoahLoadReferenceBarrierStub* stub);
   void generate_c1_pre_barrier_runtime_stub(StubAssembler* sasm);
+
+  void gen_prefetch_barrier_stub(LIR_Assembler* ce, ShenandoahPrefetchBarrierStub* stub);
+  void generate_c1_prefetch_barrier_runtime_stub(StubAssembler* sasm);
 #endif
 
   void load_reference_barrier(MacroAssembler* masm, Register dst);

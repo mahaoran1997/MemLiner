@@ -1,56 +1,37 @@
-/*
- * Copyright (c) 2015, 2019, Red Hat, Inc. All rights reserved.
- *
- * This code is free software; you can redistribute it and/or modify it
- * under the terms of the GNU General Public License version 2 only, as
- * published by the Free Software Foundation.
- *
- * This code is distributed in the hope that it will be useful, but WITHOUT
- * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
- * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
- * version 2 for more details (a copy is included in the LICENSE file that
- * accompanied this code).
- *
- * You should have received a copy of the GNU General Public License version
- * 2 along with this work; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
- *
- * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
- * or visit www.oracle.com if you need additional information or have any
- * questions.
- *
- */
 
-#ifndef SHARE_GC_SHENANDOAH_SHENANDOAHCONCURRENTMARK_INLINE_HPP
-#define SHARE_GC_SHENANDOAH_SHENANDOAHCONCURRENTMARK_INLINE_HPP
+#ifndef SHARE_VM_GC_SHENANDOAH_SHENANDOAHCONCURRENTPREFETCH_INLINE_HPP
+#define SHARE_VM_GC_SHENANDOAH_SHENANDOAHCONCURRENTPREFETCH_INLINE_HPP
 
 #include "gc/shenandoah/shenandoahAsserts.hpp"
 #include "gc/shenandoah/shenandoahBarrierSet.inline.hpp"
-#include "gc/shenandoah/shenandoahConcurrentMark.hpp"
+#include "gc/shenandoah/shenandoahConcurrentPrefetch.hpp"
 #include "gc/shenandoah/shenandoahMarkingContext.inline.hpp"
 #include "gc/shenandoah/shenandoahStringDedup.inline.hpp"
 #include "gc/shenandoah/shenandoahTaskqueue.inline.hpp"
 #include "memory/iterator.inline.hpp"
-#include "oops/compressedOops.inline.hpp"
 #include "oops/oop.inline.hpp"
 #include "runtime/prefetch.inline.hpp"
 
 template <class T>
-void ShenandoahConcurrentMark::do_task(ShenandoahObjToScanQueue* q, T* cl, jushort* live_data, ShenandoahMarkTask* task) {
+size_t ShenandoahConcurrentPrefetch::do_task(ShenandoahObjToScanQueue* q, T* cl, jushort* live_data, ShenandoahMarkTask* task) {
   oop obj = task->obj();
 
   shenandoah_assert_not_forwarded_except(NULL, obj, _heap->is_concurrent_traversal_in_progress() && _heap->cancelled_gc());
   shenandoah_assert_marked(NULL, obj);
   shenandoah_assert_not_in_cset_except(NULL, obj, _heap->cancelled_gc());
 
+  // Haoran: TODO prefetch type arrays;
+  size_t processed_size = 0;
+
   if (task->is_not_chunked()) {
     if (obj->is_instance()) {
       // Case 1: Normal oop, process as usual.
       obj->oop_iterate(cl);
+      processed_size = obj->size();
     } else if (obj->is_objArray()) {
       // Case 2: Object array instance and no chunk is set. Must be the first
       // time we visit it, start the chunked processing.
-      do_chunked_array_start<T>(q, cl, obj);
+      processed_size = do_chunked_array_start<T>(q, cl, obj);
     } else {
       // Case 3: Primitive array. Do nothing, no oops there. We use the same
       // performance tweak TypeArrayKlass::oop_oop_iterate_impl is using:
@@ -62,11 +43,12 @@ void ShenandoahConcurrentMark::do_task(ShenandoahObjToScanQueue* q, T* cl, jusho
     count_liveness(live_data, obj);
   } else {
     // Case 4: Array chunk, has sensible chunk id. Process it.
-    do_chunked_array<T>(q, cl, obj, task->chunk(), task->pow());
+    processed_size = do_chunked_array<T>(q, cl, obj, task->chunk(), task->pow());
   }
+  return processed_size;
 }
 
-inline void ShenandoahConcurrentMark::count_liveness(jushort* live_data, oop obj) {
+inline void ShenandoahConcurrentPrefetch::count_liveness(jushort* live_data, oop obj) {
   size_t region_idx = _heap->heap_region_index_containing(obj);
   ShenandoahHeapRegion* region = _heap->get_region(region_idx);
   size_t size = obj->size();
@@ -101,8 +83,9 @@ inline void ShenandoahConcurrentMark::count_liveness(jushort* live_data, oop obj
   }
 }
 
+// Haoran: modify
 template <class T>
-inline void ShenandoahConcurrentMark::do_chunked_array_start(ShenandoahObjToScanQueue* q, T* cl, oop obj) {
+inline size_t ShenandoahConcurrentPrefetch::do_chunked_array_start(ShenandoahObjToScanQueue* q, T* cl, oop obj) {
   assert(obj->is_objArray(), "expect object array");
   objArrayOop array = objArrayOop(obj);
   int len = array->length();
@@ -110,6 +93,8 @@ inline void ShenandoahConcurrentMark::do_chunked_array_start(ShenandoahObjToScan
   if (len <= (int) ObjArrayMarkingStride*2) {
     // A few slices only, process directly
     array->oop_iterate_range(cl, 0, len);
+    // Haoran: modify
+    return len * oopSize;
   } else {
     int bits = log2_long((size_t) len);
     // Compensate for non-power-of-two arrays, cover the array in excess:
@@ -159,12 +144,16 @@ inline void ShenandoahConcurrentMark::do_chunked_array_start(ShenandoahObjToScan
     int from = last_idx;
     if (from < len) {
       array->oop_iterate_range(cl, from, len);
+      // Haoran: modify
+      return (len-from) * oopSize;
     }
+    // Haoran: modify
+    return 0;
   }
 }
 
 template <class T>
-inline void ShenandoahConcurrentMark::do_chunked_array(ShenandoahObjToScanQueue* q, T* cl, oop obj, int chunk, int pow) {
+inline size_t ShenandoahConcurrentPrefetch::do_chunked_array(ShenandoahObjToScanQueue* q, T* cl, oop obj, int chunk, int pow) {
   assert(obj->is_objArray(), "expect object array");
   objArrayOop array = objArrayOop(obj);
 
@@ -191,48 +180,12 @@ inline void ShenandoahConcurrentMark::do_chunked_array(ShenandoahObjToScanQueue*
 #endif
 
   array->oop_iterate_range(cl, from, to);
+  // Haoran: modify
+  return (to - from) * oopSize;
 }
 
-class ShenandoahSATBBufferClosure : public SATBBufferClosure {
-private:
-  ShenandoahObjToScanQueue* _queue;
-  ShenandoahHeap* _heap;
-  ShenandoahMarkingContext* const _mark_context;
-public:
-  ShenandoahSATBBufferClosure(ShenandoahObjToScanQueue* q) :
-    _queue(q),
-    _heap(ShenandoahHeap::heap()),
-    _mark_context(_heap->marking_context())
-  {
-  }
-
-  void do_buffer(void **buffer, size_t size) {
-    if (_heap->has_forwarded_objects()) {
-      if (ShenandoahStringDedup::is_enabled()) {
-        do_buffer_impl<RESOLVE, ENQUEUE_DEDUP>(buffer, size);
-      } else {
-        do_buffer_impl<RESOLVE, NO_DEDUP>(buffer, size);
-      }
-    } else {
-      if (ShenandoahStringDedup::is_enabled()) {
-        do_buffer_impl<NONE, ENQUEUE_DEDUP>(buffer, size);
-      } else {
-        do_buffer_impl<NONE, NO_DEDUP>(buffer, size);
-      }
-    }
-  }
-
-  template<UpdateRefsMode UPDATE_REFS, StringDedupMode STRING_DEDUP>
-  void do_buffer_impl(void **buffer, size_t size) {
-    for (size_t i = 0; i < size; ++i) {
-      oop *p = (oop *) &buffer[i];
-      ShenandoahConcurrentMark::mark_through_ref<oop, UPDATE_REFS, STRING_DEDUP>(p, _heap, _queue, _mark_context);
-    }
-  }
-};
-
 template<class T, UpdateRefsMode UPDATE_REFS, StringDedupMode STRING_DEDUP>
-inline void ShenandoahConcurrentMark::mark_through_ref(T *p, ShenandoahHeap* heap, ShenandoahObjToScanQueue* q, ShenandoahMarkingContext* const mark_context) {
+inline void ShenandoahConcurrentPrefetch::mark_through_ref(T *p, ShenandoahHeap* heap, ShenandoahObjToScanQueue* q, ShenandoahMarkingContext* const mark_context) {
   T o = RawAccess<>::oop_load(p);
   if (!CompressedOops::is_null(o)) {
     oop obj = CompressedOops::decode_not_null(o);
@@ -253,22 +206,14 @@ inline void ShenandoahConcurrentMark::mark_through_ref(T *p, ShenandoahHeap* hea
       ShouldNotReachHere();
     }
 
-    // Note: Only when concurrently updating references can obj be different
-    // (that is, really different, not just different from-/to-space copies of the same)
-    // from the one we originally loaded. Mutator thread can beat us by writing something
-    // else into the location. In that case, we would mark through that updated value,
-    // on the off-chance it is not handled by other means (e.g. via SATB). However,
-    // if that write was NULL, we don't need to do anything else.
+    // Note: Only when concurrently updating references can obj become NULL here.
+    // It happens when a mutator thread beats us by writing another value. In that
+    // case we don't need to do anything else.
     if (UPDATE_REFS != CONCURRENT || !CompressedOops::is_null(obj)) {
-#ifdef RELEASE_DEBUG
+      
       if(!heap->is_in_reserved(obj)) {
         ShouldNotReachHere();
       }
-      if(heap->in_collection_set(obj)) {
-        tty->print("obj: 0x%lx, forward: 0x%lx, region id: %lu\n", (size_t)obj, (size_t)ShenandoahBarrierSet::resolve_forwarded_not_null(obj),(size_t)heap->heap_region_index_containing(obj));
-        ShouldNotReachHere();
-      }
-#endif
 
       shenandoah_assert_not_forwarded(p, obj);
       shenandoah_assert_not_in_cset_except(p, obj, heap->cancelled_gc());
@@ -288,4 +233,4 @@ inline void ShenandoahConcurrentMark::mark_through_ref(T *p, ShenandoahHeap* hea
   }
 }
 
-#endif // SHARE_GC_SHENANDOAH_SHENANDOAHCONCURRENTMARK_INLINE_HPP
+#endif // SHARE_VM_GC_SHENANDOAH_SHENANDOAHCONCURRENTPREFETCH_INLINE_HPP

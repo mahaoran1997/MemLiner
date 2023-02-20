@@ -31,6 +31,9 @@
 
 #include COMPILER_HEADER(utilities/globalDefinitions)
 
+#define RELEASE_DEBUG 1
+
+
 // Defaults for macros that might be defined per compiler.
 #ifndef NOINLINE
 #define NOINLINE
@@ -864,6 +867,10 @@ const int      badCodeHeapFreeVal = 0xDD;                   // value used to zap
 
 // Default TaskQueue size is 16K (32-bit) or 128K (64-bit)
 #define TASKQUEUE_SIZE (NOT_LP64(1<<14) LP64_ONLY(1<<17))
+
+#define INSTRUMENT_QUEUE_SIZE (NOT_LP64(1<<14) LP64_ONLY(1<<17))
+#define PREFETCH_QUEUE_SIZE (NOT_LP64(1<<14) LP64_ONLY(1<<17))
+
 
 //----------------------------------------------------------------------------------------------------
 // Utility functions for bitfield manipulations

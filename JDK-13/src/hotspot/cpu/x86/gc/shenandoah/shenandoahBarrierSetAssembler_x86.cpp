@@ -799,6 +799,24 @@ void ShenandoahBarrierSetAssembler::gen_load_reference_barrier_stub(LIR_Assemble
   __ jmp(*stub->continuation());
 }
 
+void ShenandoahBarrierSetAssembler::gen_prefetch_barrier_stub(LIR_Assembler* ce, ShenandoahPrefetchBarrierStub* stub) {
+  ShenandoahBarrierSetC1* bs = (ShenandoahBarrierSetC1*)BarrierSet::barrier_set()->barrier_set_c1();
+  // At this point we know that marking is in progress.
+  // If do_load() is true then we have to emit the
+  // load of the previous value; otherwise it has already
+  // been loaded into _pre_val.
+
+  __ bind(*stub->entry());
+  assert(stub->base()->is_register(), "Precondition.");
+
+  Register base_reg = stub->base()->as_register();
+
+  ce->store_parameter(stub->base()->as_register(), 0);
+  __ call(RuntimeAddress(bs->prefetch_barrier_c1_runtime_code_blob()->code_begin()));
+  __ jmp(*stub->continuation());
+
+}
+
 #undef __
 
 #define __ sasm->
@@ -848,6 +866,73 @@ void ShenandoahBarrierSetAssembler::generate_c1_pre_barrier_runtime_stub(StubAss
   // load the pre-value
   __ load_parameter(0, rcx);
   __ call_VM_leaf(CAST_FROM_FN_PTR(address, ShenandoahRuntime::write_ref_field_pre_entry), rcx, thread);
+
+  __ restore_live_registers(true);
+
+  __ bind(done);
+
+  __ pop(rdx);
+  __ pop(rax);
+
+  __ epilogue();
+}
+
+void ShenandoahBarrierSetAssembler::generate_c1_prefetch_barrier_runtime_stub(StubAssembler* sasm) {
+  __ prologue("shenandoah_prefetch_barrier", false);
+  // arg0 : previous value of memory
+
+  __ push(rax);
+  __ push(rdx);
+
+  const Register base_val = rax;
+  const Register thread = NOT_LP64(rax) LP64_ONLY(r15_thread);
+  const Register tmp = rdx;
+  NOT_LP64(__ get_thread(thread);)
+  Address queue_active(thread, in_bytes(ShenandoahThreadLocalData::prefetch_queue_active_offset()));
+  Address queue_index(thread, in_bytes(ShenandoahThreadLocalData::prefetch_queue_index_offset()));
+  Address buffer(thread, in_bytes(ShenandoahThreadLocalData::prefetch_queue_buffer_offset()));
+
+  Label done;
+  Label runtime;
+
+  // Is SATB still active?
+  // Address gc_state(thread, in_bytes(ShenandoahThreadLocalData::gc_state_offset()));
+  // __ testb(gc_state, ShenandoahHeap::MARKING | ShenandoahHeap::TRAVERSAL);
+  // __ jcc(Assembler::zero, done);
+  // Is marking still active?
+  if (in_bytes(PrefetchQueue::byte_width_of_active()) == 4) {
+    __ cmpl(queue_active, 0);
+  } else {
+    assert(in_bytes(PrefetchQueue::byte_width_of_active()) == 1, "Assumption");
+    __ cmpb(queue_active, 0);
+  }
+  __ jcc(Assembler::equal, done);
+  // Haoran: already tested it. 
+  // Haoran: TODO disable the test above
+
+
+
+  // Can we store original value in the thread's buffer?
+
+  __ movptr(tmp, queue_index);
+  __ testptr(tmp, tmp);
+  __ jcc(Assembler::zero, runtime);
+  __ subptr(tmp, wordSize);
+  __ movptr(queue_index, tmp);
+  __ addptr(tmp, buffer);
+
+  // prev_val (rax)
+  __ load_parameter(0, base_val);
+  __ movptr(Address(tmp, 0), base_val);
+  __ jmp(done);
+
+  __ bind(runtime);
+
+  __ save_live_registers_no_oop_map(true);
+
+  // load the pre-value
+  __ load_parameter(0, rcx);
+  __ call_VM_leaf(CAST_FROM_FN_PTR(address, ShenandoahRuntime::prefetch_barrier_entry), rcx, thread);
 
   __ restore_live_registers(true);
 

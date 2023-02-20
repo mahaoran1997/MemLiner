@@ -232,6 +232,22 @@
           "Number of threads concurrent gc will use")                       \
           constraint(ConcGCThreadsConstraintFunc,AfterErgo)                 \
                                                                             \
+  product(uint, PrefetchThreads, 1,                                         \
+          "Number of threads prefetch will use")                            \
+          range(0, max_jint)                                                \
+                                                                            \
+  product(uint, PrefetchNum, 0,                                             \
+          "The maximum objects to be marked during prefetching")            \
+          range(0, max_jint)                                                \
+                                                                            \
+  product(uint, PrefetchSize, 0,                                            \
+          "The maximum size of objects during prefetching")                 \
+          range(0, max_jint)                                                \
+                                                                            \
+  product(uint, PrefetchQueueThreshold, 0,                                  \
+          "The number of objects that remains after cleaning")              \
+          range(0, max_jint)                                                \
+                                                                            \
   product(uint, GCTaskTimeStampEntries, 200,                                \
           "Number of time stamp entries per gc worker thread")              \
           range(1, max_jint)                                                \

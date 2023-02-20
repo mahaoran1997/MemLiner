@@ -42,6 +42,8 @@ private:
 
   ShenandoahHeap* _heap;
   ShenandoahSATBMarkQueueSet _satb_mark_queue_set;
+  
+  ShenandoahPrefetchQueueSet _prefetch_queue_set;
 
 public:
   ShenandoahBarrierSet(ShenandoahHeap* heap);
@@ -54,6 +56,11 @@ public:
 
   static ShenandoahSATBMarkQueueSet& satb_mark_queue_set() {
     return barrier_set()->_satb_mark_queue_set;
+  }
+
+  
+  static ShenandoahPrefetchQueueSet& prefetch_queue_set() {
+    return barrier_set()->_prefetch_queue_set;
   }
 
   void print_on(outputStream* st) const;

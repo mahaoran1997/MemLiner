@@ -31,6 +31,10 @@
 #include "utilities/debug.hpp"
 #include "utilities/sizes.hpp"
 
+
+#include "gc/shenandoah/shenandoahHeap.hpp"
+// #include "gc/shared/prefetchQueue.hpp"
+
 class ShenandoahThreadLocalData {
 public:
   static const uint INVALID_WORKER_ID = uint(-1);
@@ -44,6 +48,8 @@ private:
   uint  _worker_id;
   bool _force_satb_flush;
 
+  PrefetchQueue  _prefetch_queue;
+
   ShenandoahThreadLocalData() :
     _gc_state(0),
     _oom_during_evac(0),
@@ -51,7 +57,8 @@ private:
     _gclab(NULL),
     _gclab_size(0),
     _worker_id(INVALID_WORKER_ID),
-    _force_satb_flush(false) {
+    _force_satb_flush(false),
+    _prefetch_queue(&ShenandoahBarrierSet::prefetch_queue_set()) {
   }
 
   ~ShenandoahThreadLocalData() {
@@ -69,6 +76,11 @@ private:
     return Thread::gc_data_offset() + byte_offset_of(ShenandoahThreadLocalData, _satb_mark_queue);
   }
 
+  
+  static ByteSize prefetch_queue_offset() {
+    return Thread::gc_data_offset() + byte_offset_of(ShenandoahThreadLocalData, _prefetch_queue);
+  }
+
 public:
   static void create(Thread* thread) {
     new (data(thread)) ShenandoahThreadLocalData();
@@ -80,6 +92,10 @@ public:
 
   static SATBMarkQueue& satb_mark_queue(Thread* thread) {
     return data(thread)->_satb_mark_queue;
+  }
+
+  static PrefetchQueue& prefetch_queue(Thread* thread) {
+    return data(thread)->_prefetch_queue;
   }
 
   static bool is_oom_during_evac(Thread* thread) {
@@ -164,6 +180,19 @@ public:
 
   static ByteSize satb_mark_queue_buffer_offset() {
     return satb_mark_queue_offset() + SATBMarkQueue::byte_offset_of_buf();
+  }
+
+  
+  static ByteSize prefetch_queue_active_offset() {
+    return prefetch_queue_offset() + PrefetchQueue::byte_offset_of_active();
+  }
+
+  static ByteSize prefetch_queue_index_offset() {
+    return prefetch_queue_offset() + PrefetchQueue::byte_offset_of_index();
+  }
+
+  static ByteSize prefetch_queue_buffer_offset() {
+    return prefetch_queue_offset() + PrefetchQueue::byte_offset_of_buf();
   }
 
   static ByteSize gc_state_offset() {

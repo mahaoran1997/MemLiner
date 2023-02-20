@@ -31,6 +31,10 @@
 #include "utilities/lockFreeStack.hpp"
 #include "utilities/sizes.hpp"
 
+
+
+class PrefetchQueue;
+
 class Mutex;
 class Monitor;
 
@@ -43,6 +47,7 @@ class BufferNode;
 class PtrQueueSet;
 class PtrQueue {
   friend class VMStructs;
+  friend class PrefetchQueue;
 
   // Noncopyable - not defined.
   PtrQueue(const PtrQueue&);
@@ -58,6 +63,7 @@ class PtrQueue {
   // capacity_in_bytes (indicating an empty buffer) and goes towards zero.
   // Value is always pointer-size aligned.
   size_t _index;
+  size_t _tail;
 
   // Size of the current buffer, in bytes.
   // Value is always pointer-size aligned.
@@ -71,10 +77,34 @@ class PtrQueue {
     return _capacity_in_bytes;
   }
 
+  // Get the capacity, in bytes.  The capacity must have been set.
+	size_t capacity_in_bytes_for_clear() const {
+		// assert(_capacity_in_bytes > 0, "capacity not set");
+		return _capacity_in_bytes;
+	}
+  void set_capacity(size_t entries) {
+		size_t byte_capacity = index_to_byte_index(entries);
+		assert(_capacity_in_bytes == 0 || _capacity_in_bytes == byte_capacity,
+					 "changing capacity " SIZE_FORMAT " -> " SIZE_FORMAT,
+					 _capacity_in_bytes, byte_capacity);
+		_capacity_in_bytes = byte_capacity;
+	}
+
+
   static size_t byte_index_to_index(size_t ind) {
     assert(is_aligned(ind, _element_size), "precondition");
     return ind / _element_size;
   }
+
+  static size_t byte_index_to_index_for_dequeue(size_t ind) {
+#ifdef RELEASE_DEBUG
+		if(!is_aligned(ind, _element_size)) {
+			tty->print("Not aligned! %lu\n", ind);
+      ShouldNotReachHere();
+    }
+#endif
+		return ind / _element_size;
+	}
 
   static size_t index_to_byte_index(size_t ind) {
     return ind * _element_size;
@@ -97,6 +127,10 @@ protected:
   size_t capacity() const {
     return byte_index_to_index(capacity_in_bytes());
   }
+
+  size_t capacity_for_clear() const {
+		return byte_index_to_index(capacity_in_bytes_for_clear());
+	}
 
   PtrQueueSet* qset() const { return _qset; }
 
@@ -125,6 +159,7 @@ public:
   void reset() {
     if (_buf != NULL) {
       _index = capacity_in_bytes();
+      _tail = capacity();
     }
   }
 
@@ -295,7 +330,7 @@ public:
 // set, and return completed buffers to the set.
 class PtrQueueSet {
   BufferNode::Allocator* _allocator;
-
+protected:
   Monitor* _cbl_mon;  // Protects the fields below.
   BufferNode* _completed_buffers_head;
   BufferNode* _completed_buffers_tail;

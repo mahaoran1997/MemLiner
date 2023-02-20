@@ -62,6 +62,10 @@ inline WorkGang* ShenandoahHeap::workers() const {
   return _workers;
 }
 
+inline WorkGang* ShenandoahHeap::prefetch_workers() const {
+  return _prefetch_workers;
+}
+
 inline WorkGang* ShenandoahHeap::get_safepoint_workers() {
   return _safepoint_workers;
 }

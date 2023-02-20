@@ -29,6 +29,10 @@
 #include "runtime/mutex.hpp"
 #include "runtime/thread.hpp"
 
+
+#include "gc/shared/prefetchQueue.hpp"
+
+
 class ShenandoahSATBMarkQueue: public SATBMarkQueue {
 protected:
   virtual void handle_completed_buffer();
@@ -51,5 +55,21 @@ public:
   virtual SATBMarkQueue& satb_queue_for_thread(Thread* const t) const;
   virtual void filter(SATBMarkQueue* queue);
 };
+
+class ShenandoahPrefetchQueueSet : public PrefetchQueueSet {
+  ShenandoahHeap* _heap;
+
+public:
+  ShenandoahPrefetchQueueSet();
+
+  void initialize(ShenandoahHeap* heap,
+                  Monitor* cbl_mon,
+                  BufferNode::Allocator* allocator);
+
+  static void handle_zero_index_for_thread(JavaThread* t);
+  virtual PrefetchQueue& prefetch_queue_for_thread(JavaThread* const t) const;
+  virtual void filter(PrefetchQueue* queue);
+};
+
 
 #endif // SHARE_GC_SHENANDOAH_SHENANDOAHSATBMARKQUEUESET_HPP

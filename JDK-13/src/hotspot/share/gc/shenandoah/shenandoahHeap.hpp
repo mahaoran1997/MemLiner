@@ -34,6 +34,10 @@
 #include "gc/shenandoah/shenandoahSharedVariables.hpp"
 #include "services/memoryManager.hpp"
 
+#include "gc/shared/ptrQueue.hpp"
+// #include "gc/shenandoah/shenandoahSATBMarkQueueSet.hpp"
+
+
 class ConcurrentGCTimer;
 class ReferenceProcessor;
 class ShenandoahAllocTracker;
@@ -57,6 +61,12 @@ class ShenandoahTraversalGC;
 class ShenandoahVerifier;
 class ShenandoahWorkGang;
 class VMStructs;
+
+
+class ShenandoahControlPrefetchThread;
+class ShenandoahConcurrentPrefetch;
+class ShenandoahPrefetchQueueSet;
+
 
 class ShenandoahRegionIterator : public StackObj {
 private:
@@ -194,12 +204,21 @@ private:
   ShenandoahWorkGang* _workers;
   ShenandoahWorkGang* _safepoint_workers;
 
+  // MemLiner: For prefetch
+  uint _max_prefetch_workers;
+  ShenandoahWorkGang* _prefetch_workers;
+
 public:
   uint max_workers();
+  uint max_prefetch_workers();  
+
+
   void assert_gc_workers(uint nworker) NOT_DEBUG_RETURN;
 
   WorkGang* workers() const;
   WorkGang* get_safepoint_workers();
+
+  WorkGang* prefetch_workers() const;
 
   void gc_threads_do(ThreadClosure* tcl) const;
 
@@ -436,6 +455,9 @@ private:
   ShenandoahHeuristics*      _heuristics;
   ShenandoahFreeSet*         _free_set;
   ShenandoahConcurrentMark*  _scm;
+
+  ShenandoahConcurrentPrefetch*  _spf;
+  
   ShenandoahTraversalGC*     _traversal_gc;
   ShenandoahMarkCompact*     _full_gc;
   ShenandoahPacer*           _pacer;
@@ -443,6 +465,8 @@ private:
 
   ShenandoahAllocTracker*    _alloc_tracker;
   ShenandoahPhaseTimings*    _phase_timings;
+
+  ShenandoahControlPrefetchThread* _pf_thread;
 
   ShenandoahControlThread*   control_thread()          { return _control_thread;    }
   ShenandoahMarkCompact*     full_gc()                 { return _full_gc;           }
@@ -452,6 +476,9 @@ public:
   ShenandoahHeuristics*      heuristics()        const { return _heuristics;        }
   ShenandoahFreeSet*         free_set()          const { return _free_set;          }
   ShenandoahConcurrentMark*  concurrent_mark()         { return _scm;               }
+
+  ShenandoahConcurrentPrefetch* concurrent_prefetch() const { return _spf; }
+  
   ShenandoahTraversalGC*     traversal_gc()            { return _traversal_gc;      }
   ShenandoahPacer*           pacer()             const { return _pacer;             }
 
@@ -616,6 +643,8 @@ private:
   // into cache pressure (which is already high during marking), and
   // too many atomic updates. size_t/jint is too large, jbyte is too small.
   jushort** _liveness_cache;
+  // MemLiner: for prefetching
+  jushort** _prefetch_liveness_cache;
 
 public:
   inline ShenandoahMarkingContext* complete_marking_context() const;
@@ -647,6 +676,9 @@ public:
   // Liveness caching support
   jushort* get_liveness_cache(uint worker_id);
   void flush_liveness_cache(uint worker_id);
+
+  jushort* get_prefetch_liveness_cache(uint worker_id);
+  void flush_prefetch_liveness_cache(uint worker_id);
 
 // ---------- Evacuation support
 //
@@ -710,6 +742,9 @@ private:
 
   void try_inject_alloc_failure();
   bool should_inject_alloc_failure();
+
+public:
+  BufferNode::Allocator _prefetch_mark_queue_buffer_allocator;
 };
 
 #endif // SHARE_GC_SHENANDOAH_SHENANDOAHHEAP_HPP

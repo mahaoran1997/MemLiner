@@ -109,6 +109,11 @@ public:
   ShenandoahObjToScanQueue* get_queue(uint worker_id);
   ShenandoahObjToScanQueueSet* task_queues() { return _task_queues; }
 
+  bool _in_cm;
+  void set_in_cm(bool in_cm) {_in_cm = in_cm;}
+  bool in_cm() {return _in_cm;}
+
+
 };
 
 #endif // SHARE_GC_SHENANDOAH_SHENANDOAHCONCURRENTMARK_HPP

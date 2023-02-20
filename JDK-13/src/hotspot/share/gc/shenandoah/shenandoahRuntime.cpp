@@ -65,3 +65,7 @@ JRT_END
 JRT_LEAF(void, ShenandoahRuntime::shenandoah_clone_barrier(oopDesc* obj))
   ShenandoahBarrierSet::barrier_set()->write_region(MemRegion((HeapWord*) obj, obj->size()));
 JRT_END
+
+JRT_LEAF(void, ShenandoahRuntime::prefetch_barrier_entry(oopDesc* new_val, JavaThread* thread))
+  ShenandoahThreadLocalData::prefetch_queue(thread).enqueue(new_val);
+JRT_END

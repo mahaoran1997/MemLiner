@@ -40,6 +40,7 @@ public:
   static oopDesc* load_reference_barrier_JRT(oopDesc* src);
 
   static void shenandoah_clone_barrier(oopDesc* obj);
+  static void prefetch_barrier_entry(oopDesc* new_val, JavaThread* thread);
 };
 
 #endif // SHARE_GC_SHENANDOAH_SHENANDOAHRUNTIME_HPP

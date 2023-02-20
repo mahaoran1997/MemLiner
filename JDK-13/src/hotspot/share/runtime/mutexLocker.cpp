@@ -80,9 +80,11 @@ Monitor* Threads_lock                 = NULL;
 Mutex*   NonJavaThreadsList_lock      = NULL;
 Mutex*   NonJavaThreadsListSync_lock  = NULL;
 Monitor* CGC_lock                     = NULL;
+Monitor* CPF_lock                     = NULL;
 Monitor* STS_lock                     = NULL;
 Monitor* FullGCCount_lock             = NULL;
 Monitor* SATB_Q_CBL_mon               = NULL;
+Monitor* PREFETCH_Q_CBL_mon           = NULL;
 Monitor* DirtyCardQ_CBL_mon           = NULL;
 Mutex*   Shared_DirtyCardQ_lock       = NULL;
 Mutex*   MarkStackFreeList_lock       = NULL;
@@ -215,6 +217,9 @@ void mutex_init() {
   def(tty_lock                     , PaddedMutex  , tty,         true,  Monitor::_safepoint_check_never);      // allow to lock in VM
 
   def(CGC_lock                     , PaddedMonitor, special,     true,  Monitor::_safepoint_check_never);      // coordinate between fore- and background GC
+  
+  def(CPF_lock                     , PaddedMonitor, special,     true,  Monitor::_safepoint_check_never); 
+  
   def(STS_lock                     , PaddedMonitor, leaf,        true,  Monitor::_safepoint_check_never);
 
   def(VMWeakAlloc_lock             , PaddedMutex  , vmweak,      true,  Monitor::_safepoint_check_never);
@@ -229,6 +234,8 @@ void mutex_init() {
   def(FullGCCount_lock             , PaddedMonitor, leaf,        true,  Monitor::_safepoint_check_never);      // in support of ExplicitGCInvokesConcurrent
   if (UseG1GC) {
     def(SATB_Q_CBL_mon             , PaddedMonitor, access,      true,  Monitor::_safepoint_check_never);
+
+    def(PREFETCH_Q_CBL_mon         , PaddedMonitor, access,      true,  Monitor::_safepoint_check_never);
 
     def(DirtyCardQ_CBL_mon         , PaddedMonitor, access,      true,  Monitor::_safepoint_check_never);
     def(Shared_DirtyCardQ_lock     , PaddedMutex  , access + 1,  true,  Monitor::_safepoint_check_never);

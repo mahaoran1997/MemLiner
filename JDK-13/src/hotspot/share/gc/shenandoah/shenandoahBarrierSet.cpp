@@ -75,7 +75,8 @@ ShenandoahBarrierSet::ShenandoahBarrierSet(ShenandoahHeap* heap) :
              NULL /* barrier_set_nmethod */,
              BarrierSet::FakeRtti(BarrierSet::ShenandoahBarrierSet)),
   _heap(heap),
-  _satb_mark_queue_set()
+  _satb_mark_queue_set(),
+  _prefetch_queue_set()
 {
 }
 
@@ -220,6 +221,14 @@ oop ShenandoahBarrierSet::load_reference_barrier_not_null(oop obj) {
   } else {
     return obj;
   }
+
+  // if (ShenandoahLoadRefBarrier && _heap->has_forwarded_objects()) {
+  //   obj = load_reference_barrier_impl(obj);
+  // }
+  // if (ShenandoahPrefetchBarrier && _heap->is_concurrent_mark_in_progress() && ShenandoahThreadLocalData::prefetch_queue(Thread::current())->is_active()) {
+  //   ShenandoahThreadLocalData::prefetch_queue(Thread::current()).enqueue(obj);
+  // }
+  // return obj;
 }
 
 oop ShenandoahBarrierSet::load_reference_barrier(oop obj) {
@@ -342,6 +351,7 @@ void ShenandoahBarrierSet::on_thread_attach(Thread *thread) {
   assert(!queue.is_active(), "SATB queue should not be active");
   assert( queue.is_empty(),  "SATB queue should be empty");
   queue.set_active(_satb_mark_queue_set.is_active());
+  ShenandoahThreadLocalData::prefetch_queue(thread).set_active(_satb_mark_queue_set.is_active());
   if (thread->is_Java_thread()) {
     ShenandoahThreadLocalData::set_gc_state(thread, _heap->gc_state());
     ShenandoahThreadLocalData::initialize_gclab(thread);

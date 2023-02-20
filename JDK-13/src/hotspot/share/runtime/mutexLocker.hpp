@@ -75,10 +75,12 @@ extern Mutex*   NonJavaThreadsList_lock;         // a lock on the NonJavaThreads
 extern Mutex*   NonJavaThreadsListSync_lock;     // a lock for NonJavaThreads list synchronization
 extern Monitor* CGC_lock;                        // used for coordination between
                                                  // fore- & background GC threads.
+extern Monitor* CPF_lock; 
 extern Monitor* STS_lock;                        // used for joining/leaving SuspendibleThreadSet.
 extern Monitor* FullGCCount_lock;                // in support of "concurrent" full gc
 extern Monitor* SATB_Q_CBL_mon;                  // Protects SATB Q
                                                  // completed buffer queue.
+extern Monitor* PREFETCH_Q_CBL_mon; 
 extern Monitor* DirtyCardQ_CBL_mon;              // Protects dirty card Q
                                                  // completed buffer queue.
 extern Mutex*   Shared_DirtyCardQ_lock;          // Lock protecting dirty card

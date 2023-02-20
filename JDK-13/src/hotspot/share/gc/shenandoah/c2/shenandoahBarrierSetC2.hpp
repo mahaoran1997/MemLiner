@@ -53,6 +53,16 @@ private:
 
   bool satb_can_remove_pre_barrier(GraphKit* kit, PhaseTransform* phase, Node* adr,
                                    BasicType bt, uint adr_idx) const;
+  
+  void prefetch_barrier(GraphKit* kit, bool do_load,
+                              Node* obj,
+                              Node* adr,
+                              uint alias_idx,
+                              Node* val,
+                              const TypeOopPtr* val_type,
+                              Node* pre_val,
+                              BasicType bt) const;
+  
   void satb_write_barrier_pre(GraphKit* kit, bool do_load,
                               Node* obj,
                               Node* adr,
@@ -103,6 +113,9 @@ public:
   static const TypeFunc* write_ref_field_pre_entry_Type();
   static const TypeFunc* shenandoah_clone_barrier_Type();
   static const TypeFunc* shenandoah_load_reference_barrier_Type();
+
+  static const TypeFunc* prefetch_entry_Type();
+
   virtual bool has_load_barriers() const { return true; }
 
   // This is the entry-point for the backend to perform accesses through the Access API.
