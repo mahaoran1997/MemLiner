@@ -250,6 +250,11 @@ private:
 
   volatile size_t _live_data;
 
+public:
+  HeapWord** unevac_pages; 
+  int page_cnt;
+
+private:
   // Claim some space at the end to protect next region
   DEFINE_PAD_MINUS_SIZE(0, DEFAULT_CACHE_LINE_SIZE, 0);
 

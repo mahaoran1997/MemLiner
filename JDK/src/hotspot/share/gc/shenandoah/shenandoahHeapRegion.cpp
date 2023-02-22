@@ -69,9 +69,12 @@ ShenandoahHeapRegion::ShenandoahHeapRegion(ShenandoahHeap* heap, HeapWord* start
   _seqnum_first_alloc_gc(0),
   _seqnum_last_alloc_mutator(0),
   _seqnum_last_alloc_gc(0),
-  _live_data(0) {
+  _live_data(0),
+  unevac_pages(NULL),
+  page_cnt(0) {
 
   ContiguousSpace::initialize(_reserved, true, committed);
+  unevac_pages = NEW_C_HEAP_ARRAY(HeapWord*, size_words / 512, mtGC);
 }
 
 size_t ShenandoahHeapRegion::region_number() const {

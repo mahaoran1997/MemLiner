@@ -728,8 +728,11 @@
           "to move")                                                        \
                                                                             \
   /* MemLiner start*/                                                       \
-  product(bool, MemLinerEnableMemPool, false,                                 \
+  product(bool, MemLinerEnableMemPool, false,                               \
           "Build the Semeru Memory Heap or not. (default false) ")          \
+                                                                            \
+  product(bool, MemLinerDelay, false,                                       \
+          "Delay tracing and Evacuation ")                                  \
                                                                             \
   /* MemLiner end*/                                                         \
                                                                             \

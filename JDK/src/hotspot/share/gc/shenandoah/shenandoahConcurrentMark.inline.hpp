@@ -38,7 +38,17 @@
 template <class T>
 void ShenandoahConcurrentMark::do_task(ShenandoahObjToScanQueue* q, T* cl, jushort* live_data, ShenandoahMarkTask* task) {
   oop obj = task->obj();
-
+  
+  // oop mask_obj = (oop)((size_t)obj & ((1ULL<<47)-1));
+  // size_t page_id = ((size_t)mask_obj - SEMERU_START_ADDR)/4096;
+  // if(task->is_not_chunked() && !((size_t)obj & (1ULL<<47)) && _heap->user_buf->page_stats[page_id] != 0) {
+  //   mask_obj = (oop)((size_t)obj | (1ULL<<47));
+  //   bool pushed = q->push_back(ShenandoahMarkTask(mask_obj));
+  //   assert(pushed, "Should be able to push");
+  //   return;
+  // }
+  
+  // obj = mask_obj;
   shenandoah_assert_not_forwarded_except(NULL, obj, _heap->is_concurrent_traversal_in_progress() && _heap->cancelled_gc());
   shenandoah_assert_marked(NULL, obj);
   shenandoah_assert_not_in_cset_except(NULL, obj, _heap->cancelled_gc());

@@ -917,7 +917,7 @@ void ShenandoahConcurrentMark::mark_loop_prework(uint w, ShenandoahTaskTerminato
 
   // TODO: We can clean up this if we figure out how to do templated oop closures that
   // play nice with specialized_oop_iterators.
-  if (_heap->unload_classes()) {
+  if (_heap->unload_classes()) { // In MemLiner set -Xnoclassgc and will not go this path
     if (_heap->has_forwarded_objects()) {
       if (strdedup) {
         ShenandoahMarkUpdateRefsMetadataDedupClosure cl(q, rp);
@@ -940,7 +940,7 @@ void ShenandoahConcurrentMark::mark_loop_prework(uint w, ShenandoahTaskTerminato
       if (strdedup) {
         ShenandoahMarkUpdateRefsDedupClosure cl(q, rp);
         mark_loop_work<ShenandoahMarkUpdateRefsDedupClosure, CANCELLABLE>(&cl, ld, w, t);
-      } else {
+      } else { // Only this one is used in MemLiner
         ShenandoahMarkUpdateRefsClosure cl(q, rp);
         mark_loop_work<ShenandoahMarkUpdateRefsClosure, CANCELLABLE>(&cl, ld, w, t);
       }
@@ -948,7 +948,7 @@ void ShenandoahConcurrentMark::mark_loop_prework(uint w, ShenandoahTaskTerminato
       if (strdedup) {
         ShenandoahMarkRefsDedupClosure cl(q, rp);
         mark_loop_work<ShenandoahMarkRefsDedupClosure, CANCELLABLE>(&cl, ld, w, t);
-      } else {
+      } else { // Only this one is used in MemLiner
         ShenandoahMarkRefsClosure cl(q, rp);
         mark_loop_work<ShenandoahMarkRefsClosure, CANCELLABLE>(&cl, ld, w, t);
       }

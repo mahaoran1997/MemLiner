@@ -34,6 +34,7 @@ class BufferedOverflowTaskQueue: public OverflowTaskQueue<E, F, N>
 {
 public:
   typedef OverflowTaskQueue<E, F, N> taskqueue_t;
+  typedef GenericTaskQueue<E, F, N> genericqueue_t;
 
   BufferedOverflowTaskQueue() : _buf_empty(true) {};
 

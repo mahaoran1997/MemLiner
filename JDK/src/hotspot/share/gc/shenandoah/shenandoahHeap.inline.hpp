@@ -488,6 +488,125 @@ inline void ShenandoahHeap::marked_object_iterate(ShenandoahHeapRegion* region, 
   }
 }
 
+
+template<class T>
+inline void ShenandoahHeap::marked_local_object_iterate(ShenandoahHeapRegion* region, T* cl) {
+
+  HeapWord* limit = region->top();
+
+  assert(ShenandoahBrooksPointer::word_offset() < 0, "skip_delta calculation below assumes the forwarding ptr is before obj");
+  assert(! region->is_humongous_continuation(), "no humongous continuation regions here");
+  ShenandoahMarkingContext* const ctx = complete_marking_context();
+  assert(ctx->is_complete(), "sanity");
+
+  MarkBitMap* mark_bit_map = ctx->mark_bit_map();
+  HeapWord* tams = ctx->top_at_mark_start(region);
+
+  size_t skip_bitmap_delta = ShenandoahBrooksPointer::word_size() + 1;
+  size_t skip_objsize_delta = ShenandoahBrooksPointer::word_size() /* + actual obj.size() below */;
+  HeapWord* start = region->bottom() + ShenandoahBrooksPointer::word_size();
+  HeapWord* end = MIN2(tams + ShenandoahBrooksPointer::word_size(), region->end());
+
+  // Step 1. Scan below the TAMS based on bitmap data.
+  HeapWord* limit_bitmap = MIN2(limit, tams);
+
+  // Try to scan the initial candidate. If the candidate is above the TAMS, it would
+  // fail the subsequent "< limit_bitmap" checks, and fall through to Step 2.
+  HeapWord* cb = mark_bit_map->get_next_marked_addr(start, end);
+  region->page_cnt = 0;
+  
+  while (cb < limit_bitmap) {
+    size_t page_id = ((size_t)cb - SEMERU_START_ADDR)/4096;
+    HeapWord* page_st = (HeapWord*)(SEMERU_START_ADDR + page_id*4096);
+    HeapWord* page_ed = (HeapWord*)(SEMERU_START_ADDR + (page_id + 1)*4096);
+    if(user_buf->page_stats[page_id] == 0) {
+      HeapWord* page_limit_bitmap = MIN2(limit_bitmap, page_ed);
+      while(cb < page_limit_bitmap) {
+        assert (cb < tams,  "only objects below TAMS here: "  PTR_FORMAT " (" PTR_FORMAT ")", p2i(cb), p2i(tams));
+        assert (cb < limit, "only objects below limit here: " PTR_FORMAT " (" PTR_FORMAT ")", p2i(cb), p2i(limit));
+        oop obj = oop(cb);
+        assert(oopDesc::is_oop(obj), "sanity");
+        assert(ctx->is_marked(obj), "object expected to be marked");
+        cl->do_object(obj);
+        cb += skip_bitmap_delta;
+        if (cb < limit_bitmap) {
+          cb = mark_bit_map->get_next_marked_addr(cb, limit_bitmap);
+        }
+      }
+      
+    }
+    else {
+      region->unevac_pages[region->page_cnt ++] = cb;
+      if(page_ed < limit_bitmap) {
+        cb = mark_bit_map->get_next_marked_addr(page_ed, limit_bitmap);
+      } else {
+        cb = limit_bitmap;
+      }
+    }
+  }
+
+  // Step 2. Accurate size-based traversal, happens past the TAMS.
+  // This restarts the scan at TAMS, which makes sure we traverse all objects,
+  // regardless of what happened at Step 1.
+  HeapWord* cs = tams + ShenandoahBrooksPointer::word_size();
+  while (cs < limit) {
+    
+    assert (cs > tams,  "only objects past TAMS here: "   PTR_FORMAT " (" PTR_FORMAT ")", p2i(cs), p2i(tams));
+    assert (cs < limit, "only objects below limit here: " PTR_FORMAT " (" PTR_FORMAT ")", p2i(cs), p2i(limit));
+    oop obj = oop(cs);
+    assert(oopDesc::is_oop(obj), "sanity");
+    assert(ctx->is_marked(obj), "object expected to be marked");
+    int size = obj->size();
+    cl->do_object(obj);
+    cs += size + skip_objsize_delta;
+  }
+}
+
+
+template<class T>
+inline void ShenandoahHeap::unevac_page_iterate(ShenandoahHeapRegion* region, T* cl) {
+
+  HeapWord* limit = region->top();
+
+  assert(ShenandoahBrooksPointer::word_offset() < 0, "skip_delta calculation below assumes the forwarding ptr is before obj");
+  assert(! region->is_humongous_continuation(), "no humongous continuation regions here");
+  ShenandoahMarkingContext* const ctx = complete_marking_context();
+  assert(ctx->is_complete(), "sanity");
+
+  MarkBitMap* mark_bit_map = ctx->mark_bit_map();
+  HeapWord* tams = ctx->top_at_mark_start(region);
+
+  size_t skip_bitmap_delta = ShenandoahBrooksPointer::word_size() + 1;
+  size_t skip_objsize_delta = ShenandoahBrooksPointer::word_size() /* + actual obj.size() below */;
+  HeapWord* start = region->bottom() + ShenandoahBrooksPointer::word_size();
+  HeapWord* end = MIN2(tams + ShenandoahBrooksPointer::word_size(), region->end());
+
+  // Step 1. Scan below the TAMS based on bitmap data.
+  HeapWord* limit_bitmap = MIN2(limit, tams);
+
+
+  for(int i = 0; i < region->page_cnt; i++) {
+    HeapWord* cb = region->unevac_pages[i];
+    size_t page_id = ((size_t)cb - SEMERU_START_ADDR)/4096;
+    HeapWord* page_ed = (HeapWord*)(SEMERU_START_ADDR + (page_id + 1)*4096);
+    HeapWord* page_limit_bitmap = MIN2(limit_bitmap, page_ed);
+    while(cb < page_limit_bitmap) {
+      assert (cb < tams,  "only objects below TAMS here: "  PTR_FORMAT " (" PTR_FORMAT ")", p2i(cb), p2i(tams));
+      assert (cb < limit, "only objects below limit here: " PTR_FORMAT " (" PTR_FORMAT ")", p2i(cb), p2i(limit));
+      oop obj = oop(cb);
+      assert(oopDesc::is_oop(obj), "sanity");
+      assert(ctx->is_marked(obj), "object expected to be marked");
+      cl->do_object(obj);
+      cb += skip_bitmap_delta;
+      if (cb < page_limit_bitmap) {
+        cb = mark_bit_map->get_next_marked_addr(cb, page_limit_bitmap);
+      }
+    }
+  }
+}
+
+
+
 template <class T>
 class ShenandoahObjectToOopClosure : public ObjectClosure {
   T* _cl;

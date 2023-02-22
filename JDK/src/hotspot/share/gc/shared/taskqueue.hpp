@@ -348,6 +348,9 @@ public:
 
   // Push task t onto the queue or onto the overflow stack.  Return true.
   inline bool push(E t);
+  // Push task t onto the queue or onto the overflow stack.  Return true.
+  inline bool push_back(E t);
+
   // Try to push task t onto the queue only. Returns true if successful, false otherwise.
   inline bool try_push_to_taskqueue(E t);
 

@@ -728,6 +728,12 @@
           "Dummy object allocated with +FullGCALot, forcing all objects "   \
           "to move")                                                        \
                                                                             \
+  /* MemLiner start*/                                                       \
+  product(bool, MemLinerEnableMemPool, false,                               \
+          "Build the Semeru Memory Heap or not. (default false) ")          \
+                                                                            \
+  /* MemLiner end*/                                                         \
+                                                                            \
   /* gc parameters */                                                       \
   product(size_t, MinHeapSize, 0,                                           \
           "Minimum heap size (in bytes); zero means use ergonomics")        \

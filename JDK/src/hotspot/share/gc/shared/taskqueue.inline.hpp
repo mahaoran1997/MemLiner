@@ -130,6 +130,15 @@ inline bool OverflowTaskQueue<E, F, N>::push(E t)
 }
 
 template <class E, MEMFLAGS F, unsigned int N>
+inline bool OverflowTaskQueue<E, F, N>::push_back(E t)
+{
+  overflow_stack()->push(t);
+  TASKQUEUE_STATS_ONLY(stats.record_overflow(overflow_stack()->size()));
+  return true;
+}
+
+
+template <class E, MEMFLAGS F, unsigned int N>
 inline bool OverflowTaskQueue<E, F, N>::try_push_to_taskqueue(E t) {
   return taskqueue_t::push(t);
 }

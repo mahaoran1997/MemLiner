@@ -1531,6 +1531,8 @@ public:
 
 G1CollectedHeap::G1CollectedHeap(G1CollectorPolicy* collector_policy) :
 	CollectedHeap(),
+	_remark_reclaimed_bytes(0),
+	user_buf(NULL),
 	_have_done(false),
 	_young_gen_sampling_thread(NULL),
 	_workers(NULL),

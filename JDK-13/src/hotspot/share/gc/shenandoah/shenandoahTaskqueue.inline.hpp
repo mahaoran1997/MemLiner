@@ -30,13 +30,17 @@
 
 template <class E, MEMFLAGS F, unsigned int N>
 bool BufferedOverflowTaskQueue<E, F, N>::pop(E &t) {
-  if (!_buf_empty) {
-    t = _elem;
-    _buf_empty = true;
-    return true;
-  }
+  // if (!_buf_empty) {
+  //   t = _elem;
+  //   _buf_empty = true;
+  //   return true;
+  // }
 
-  if (taskqueue_t::pop_local(t)) {
+  // if (taskqueue_t::pop_local(t)) {
+  //   return true;
+  // }
+
+  if (genericqueue_t::pop_global(t)) {
     return true;
   }
 
@@ -45,14 +49,17 @@ bool BufferedOverflowTaskQueue<E, F, N>::pop(E &t) {
 
 template <class E, MEMFLAGS F, unsigned int N>
 inline bool BufferedOverflowTaskQueue<E, F, N>::push(E t) {
-  if (_buf_empty) {
-    _elem = t;
-    _buf_empty = false;
-  } else {
-    bool pushed = taskqueue_t::push(_elem);
-    assert(pushed, "overflow queue should always succeed pushing");
-    _elem = t;
-  }
+  // if (_buf_empty) {
+  //   _elem = t;
+  //   _buf_empty = false;
+  // } else {
+  //   bool pushed = taskqueue_t::push(_elem);
+  //   assert(pushed, "overflow queue should always succeed pushing");
+  //   _elem = t;
+  // }
+  bool pushed = taskqueue_t::push(t);
+  assert(pushed, "overflow queue should always succeed pushing");
+
   return true;
 }
 

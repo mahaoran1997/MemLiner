@@ -745,6 +745,7 @@ private:
 
 public:
   BufferNode::Allocator _prefetch_mark_queue_buffer_allocator;
+  struct epoch_struct* user_buf;
 };
 
 #endif // SHARE_GC_SHENANDOAH_SHENANDOAHHEAP_HPP

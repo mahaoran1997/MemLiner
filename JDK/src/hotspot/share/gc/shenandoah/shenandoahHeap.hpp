@@ -686,6 +686,10 @@ public:
 
   template<class T>
   inline void marked_object_iterate(ShenandoahHeapRegion* region, T* cl, HeapWord* limit);
+  template<class T>
+  inline void marked_local_object_iterate(ShenandoahHeapRegion* region, T* cl);
+  template<class T>
+  inline void unevac_page_iterate(ShenandoahHeapRegion* region, T* cl);
 
   template<class T>
   inline void marked_object_oop_iterate(ShenandoahHeapRegion* region, T* cl, HeapWord* limit);
@@ -782,6 +786,7 @@ public:
 
   // Haoran: modify
   // ShenandoahPrefetchQueueSet* prefetch_queue_set() { return &_prefetch_queue_set; }
+  struct epoch_struct* user_buf;
 };
 
 #endif // SHARE_VM_GC_SHENANDOAH_SHENANDOAHHEAP_HPP

@@ -41,6 +41,8 @@ public:
 
   // Push task t into the queue. Returns true on success.
   inline bool push(E t);
+  // Push task t into the queue. Returns true on success.
+  inline bool push_back(E t);
 
   // Attempt to pop from the queue. Returns true on success.
   inline bool pop(E &t);
@@ -48,7 +50,8 @@ public:
   inline void clear();
 
   inline bool is_empty()        const {
-    return _buf_empty && taskqueue_t::is_empty();
+    // return _buf_empty && taskqueue_t::is_empty();
+    return taskqueue_t::is_empty();
   }
 
 private:

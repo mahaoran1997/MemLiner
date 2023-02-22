@@ -2583,7 +2583,12 @@ jint Arguments::parse_each_vm_init_arg(const JavaVMInitArgs* args, bool* patch_m
     } else if (match_option(option, "-Xbatch")) {
       if (FLAG_SET_CMDLINE(BackgroundCompilation, false) != JVMFlag::SUCCESS) {
         return JNI_EINVAL;
-      }
+      }    
+    // // Enable MemLiner heap
+    // } else if(match_option(option, "-XX:MemLinerEnableMemPool")) {
+    //   if (FLAG_SET_CMDLINE(bool, MemLinerEnableMemPool, true) != JVMFlag::SUCCESS) {
+    //     return JNI_EINVAL;
+    //   }
     // -Xmn for compatibility with other JVM vendors
     } else if (match_option(option, "-Xmn", &tail)) {
       julong long_initial_young_size = 0;

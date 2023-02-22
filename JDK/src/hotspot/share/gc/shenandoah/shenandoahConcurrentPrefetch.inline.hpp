@@ -38,6 +38,7 @@
 template <class T>
 size_t ShenandoahConcurrentPrefetch::do_task(ShenandoahObjToScanQueue* q, T* cl, jushort* live_data, ShenandoahMarkTask* task) {
   oop obj = task->obj();
+  obj = (oop)((size_t)obj & ((1ULL<<47)-1));
 
   shenandoah_assert_not_forwarded_except(NULL, obj, _heap->is_concurrent_traversal_in_progress() && _heap->cancelled_gc());
   shenandoah_assert_marked(NULL, obj);

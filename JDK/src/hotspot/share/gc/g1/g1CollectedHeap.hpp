@@ -159,7 +159,9 @@ class G1CollectedHeap : public CollectedHeap {
 
   // Testing classes.
   friend class G1CheckCSetFastTableClosure;
-
+public:
+  size_t _remark_reclaimed_bytes;
+  struct epoch_struct* user_buf;
 private:
   bool _have_done;
   G1YoungRemSetSamplingThread* _young_gen_sampling_thread;

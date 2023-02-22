@@ -403,6 +403,10 @@ class Universe: AllStatic {
 
   // Compiler support
   static int base_vtable_size()               { return _base_vtable_size; }
+
+  // MemLiner support
+  static ReservedSpace reserve_memliner_memory_pool(size_t heap_size, size_t alignment);
+
 };
 
 #endif // SHARE_MEMORY_UNIVERSE_HPP

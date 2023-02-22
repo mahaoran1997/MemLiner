@@ -82,6 +82,14 @@
 #include "gc/shenandoah/shenandoahControlPrefetchThread.hpp"
 #include "gc/shenandoah/shenandoahSATBMarkQueueSet.hpp"
 
+#include <linux/kernel.h>
+#include <sys/syscall.h>
+#include <unistd.h>
+#include <sys/mman.h>  
+#include <sys/errno.h>
+
+
+
 #ifdef ASSERT
 template <class T>
 void ShenandoahAssertToSpaceClosure::do_oop_work(T* p) {
@@ -184,7 +192,40 @@ jint ShenandoahHeap::initialize() {
   // Reserve and commit memory for heap
   //
 
-  ReservedSpace heap_rs = Universe::reserve_heap(max_byte_size, heap_alignment);
+  // ReservedSpace heap_rs = Universe::reserve_heap(max_byte_size, heap_alignment);
+  ReservedSpace heap_rs;
+  if (MemLinerEnableMemPool) {
+    heap_rs = Universe::reserve_memliner_memory_pool(max_byte_size, heap_alignment);
+		
+		user_buf = (struct epoch_struct*)mmap((char*)0x100000000000UL, max_byte_size/4096 + 1024, PROT_NONE, MAP_PRIVATE | MAP_NORESERVE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
+		if (user_buf == MAP_FAILED) {
+			tty->print("Reserve user_buffer, 0x%lx failed. \n",
+				0x100000000000UL);
+		} else {
+			tty->print("Reserve user_buffer: 0x%lx, bytes_len: 0x%lx \n",
+				(unsigned long)user_buf, max_byte_size/4096 + 1024);
+		}
+		user_buf = (struct epoch_struct*)mmap((char*)0x100000000000UL, max_byte_size/4096 + 1024, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_ANONYMOUS, -1, 0);
+		if (user_buf == MAP_FAILED) {
+			tty->print("Commit user_buffer, 0x%lx failed. \n", 0x100000000000UL);
+		} else {
+			tty->print("Commit user_buffer: 0x%lx, bytes_len: 0x%lx \n",
+				(unsigned long)user_buf, max_byte_size/4096 + 1024);
+		}
+
+		// #2 Ask kernel to fill the physical pages of the buffer
+		int ret = syscall(457, (unsigned long)user_buf, max_byte_size/4096 + 512);
+		if (ret) {
+			tty->print("syscall error, with code %d\n", ret);
+		}
+		// #3 Check the value of the allcoated data
+		tty->print("epoch %d \n",user_buf->epoch);
+		tty->print("array length %x \n", user_buf->length);
+
+	} else {
+    heap_rs = Universe::reserve_heap(max_byte_size, heap_alignment);
+	}
+
   initialize_reserved_region((HeapWord*)heap_rs.base(), (HeapWord*) (heap_rs.base() + heap_rs.size()));
   _heap_region = MemRegion((HeapWord*)heap_rs.base(), heap_rs.size() / HeapWordSize);
   _heap_region_special = heap_rs.special();
@@ -484,7 +525,8 @@ ShenandoahHeap::ShenandoahHeap(ShenandoahCollectorPolicy* policy) :
   _liveness_cache(NULL),
   _prefetch_liveness_cache(NULL),
   _collection_set(NULL),
-  _prefetch_mark_queue_buffer_allocator("Prefetch Buffer Allocator", ShenandoahPrefetchBufferSize)
+  _prefetch_mark_queue_buffer_allocator("Prefetch Buffer Allocator", ShenandoahPrefetchBufferSize),
+	user_buf(NULL)
 {
   log_info(gc, init)("GC threads: " UINT32_FORMAT " parallel, " UINT32_FORMAT " concurrent", ParallelGCThreads, ConcGCThreads);
   log_info(gc, init)("Reference processing: %s", ParallelRefProcEnabled ? "parallel" : "serial");
